@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLiveStatus, type WsStatus } from "@/lib/live";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const NAV = [
   { href: "/", label: "Chat", icon: "❯" },
@@ -10,6 +11,7 @@ const NAV = [
   { href: "/jobs", label: "Jobs", icon: "☰" },
   { href: "/sessions", label: "Sessions", icon: "⟲" },
   { href: "/runs", label: "Runs", icon: "⌥" },
+  { href: "/evals", label: "Evals", icon: "≡" },
   { href: "/workspace", label: "Workspace", icon: "▤" },
   { href: "/playbook", label: "Playbook", icon: "✎" },
 ];
@@ -64,11 +66,12 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t border-edge px-4 py-3">
+      <div className="space-y-1.5 border-t border-edge px-4 py-3">
         <div className="flex items-center gap-2 font-mono text-[11px] text-muted">
           <span className={`h-2 w-2 rounded-full ${ws.dot}`} />
           ws {ws.text}
         </div>
+        <ThemeToggle />
       </div>
     </aside>
   );

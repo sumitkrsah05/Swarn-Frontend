@@ -5,6 +5,8 @@ import "./globals.css";
 import { LiveProvider } from "@/lib/live";
 import { ToastProvider } from "@/components/toast";
 import { Sidebar } from "@/components/sidebar";
+import { QueryProvider } from "@/components/query-provider";
+import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 
 const overusedGrotesk = localFont({
   src: [
@@ -31,15 +33,23 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      data-theme="light"
+      suppressHydrationWarning
       className={`${overusedGrotesk.variable} ${plexMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* applies the stored / OS theme before first paint (no flash) */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body className="min-h-full bg-bg text-fg">
-        <LiveProvider>
-          <ToastProvider>
-            <Sidebar />
-            <main className="ml-52 h-screen">{children}</main>
-          </ToastProvider>
-        </LiveProvider>
+        <QueryProvider>
+          <LiveProvider>
+            <ToastProvider>
+              <Sidebar />
+              <main className="ml-52 h-screen">{children}</main>
+            </ToastProvider>
+          </LiveProvider>
+        </QueryProvider>
       </body>
     </html>
   );

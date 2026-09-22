@@ -1,31 +1,96 @@
 @import "tailwindcss";
 
-/* Fanout (fanout.sh) light theme */
-:root {
+/*
+ * Theme tokens. Light (Fanout-style) is the default; dark applies when
+ * <html data-theme="dark"> is set (see lib/theme.ts) or, with no stored
+ * choice, when the OS prefers dark. Tailwind utilities (bg-panel, text-fg…)
+ * read these through the @theme block below, so every screen follows.
+ */
+:root,
+:root[data-theme="light"] {
   --background: #f7f7f8;
   --foreground: #272727;
+  --c-bg: #f7f7f8;
+  --c-panel: #ffffff;
+  --c-raised: #f4f4f5;
+  --c-hover: #f0f0f2;
+  --c-edge: #e8e8ea;
+  --c-edge-soft: #ededef;
+  --c-fg: #272727;
+  --c-muted: #6e6e6e;
+  --c-faint: #929292;
+  --c-accent: #6366f1;
+  --c-ok: #0f9d58;
+  --c-warn: #e8822a;
+  --c-err: #dc2626;
+  --c-violet: #6e56cf;
+  --c-code-bg: #fafafa;
+  --c-scroll: #c9c9cf;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --background: #0f1012;
+  --foreground: #e6e6e9;
+  --c-bg: #0f1012;
+  --c-panel: #17181b;
+  --c-raised: #1f2024;
+  --c-hover: #24252a;
+  --c-edge: #2a2b31;
+  --c-edge-soft: #26272c;
+  --c-fg: #e6e6e9;
+  --c-muted: #a0a0a8;
+  --c-faint: #6f7079;
+  --c-accent: #818cf8;
+  --c-ok: #34c37a;
+  --c-warn: #f0a04b;
+  --c-err: #f26b6b;
+  --c-violet: #9d8cf0;
+  --c-code-bg: #131417;
+  --c-scroll: #3a3b42;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0f1012;
+    --foreground: #e6e6e9;
+    --c-bg: #0f1012;
+    --c-panel: #17181b;
+    --c-raised: #1f2024;
+    --c-hover: #24252a;
+    --c-edge: #2a2b31;
+    --c-edge-soft: #26272c;
+    --c-fg: #e6e6e9;
+    --c-muted: #a0a0a8;
+    --c-faint: #6f7079;
+    --c-accent: #818cf8;
+    --c-ok: #34c37a;
+    --c-warn: #f0a04b;
+    --c-err: #f26b6b;
+    --c-violet: #9d8cf0;
+    --c-code-bg: #131417;
+    --c-scroll: #3a3b42;
+    color-scheme: dark;
+  }
 }
 
 @theme inline {
-  --color-bg: #f7f7f8;
-  --color-panel: #ffffff;
-  --color-raised: #f4f4f5;
-  --color-hover: #f0f0f2;
-  --color-edge: #e8e8ea;
-  --color-fg: #272727;
-  --color-muted: #6e6e6e;
-  --color-faint: #929292;
-  --color-accent: #6366f1;
-  --color-ok: #0f9d58;
-  --color-warn: #e8822a;
-  --color-err: #dc2626;
-  --color-violet: #6e56cf;
+  --color-bg: var(--c-bg);
+  --color-panel: var(--c-panel);
+  --color-raised: var(--c-raised);
+  --color-hover: var(--c-hover);
+  --color-edge: var(--c-edge);
+  --color-fg: var(--c-fg);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-accent: var(--c-accent);
+  --color-ok: var(--c-ok);
+  --color-warn: var(--c-warn);
+  --color-err: var(--c-err);
+  --color-violet: var(--c-violet);
   --font-sans: var(--font-overused-grotesk);
   --font-mono: var(--font-plex-mono);
-}
-
-html {
-  color-scheme: light;
 }
 
 body {
@@ -40,9 +105,9 @@ body {
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: #c9c9cf;
+  background: var(--c-scroll);
   border-radius: 5px;
-  border: 2px solid #f7f7f8;
+  border: 2px solid var(--c-bg);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -52,7 +117,7 @@ body {
 .markdown {
   font-size: 0.875rem;
   line-height: 1.65;
-  color: #272727;
+  color: var(--c-fg);
   overflow-wrap: break-word;
 }
 .markdown h1,
@@ -65,12 +130,12 @@ body {
 }
 .markdown h1 {
   font-size: 1.4rem;
-  border-bottom: 1px solid #e8e8ea;
+  border-bottom: 1px solid var(--c-edge);
   padding-bottom: 0.4em;
 }
 .markdown h2 {
   font-size: 1.2rem;
-  border-bottom: 1px solid #ededef;
+  border-bottom: 1px solid var(--c-edge-soft);
   padding-bottom: 0.3em;
 }
 .markdown h3 {
@@ -99,7 +164,7 @@ body {
   margin: 0.25em 0;
 }
 .markdown a {
-  color: #6366f1;
+  color: var(--c-accent);
 }
 .markdown a:hover {
   text-decoration: underline;
@@ -107,13 +172,13 @@ body {
 .markdown code {
   font-family: var(--font-plex-mono), ui-monospace, monospace;
   font-size: 0.85em;
-  background: #f4f4f5;
+  background: var(--c-raised);
   padding: 0.15em 0.4em;
   border-radius: 4px;
 }
 .markdown pre {
-  background: #fafafa;
-  border: 1px solid #e8e8ea;
+  background: var(--c-code-bg);
+  border: 1px solid var(--c-edge);
   border-radius: 8px;
   padding: 0.9em 1em;
   overflow-x: auto;
@@ -125,9 +190,9 @@ body {
   font-size: 0.8rem;
 }
 .markdown blockquote {
-  border-left: 3px solid #dedee2;
+  border-left: 3px solid var(--c-edge);
   padding-left: 1em;
-  color: #6e6e6e;
+  color: var(--c-muted);
 }
 .markdown table {
   border-collapse: collapse;
@@ -137,17 +202,17 @@ body {
 }
 .markdown th,
 .markdown td {
-  border: 1px solid #e8e8ea;
+  border: 1px solid var(--c-edge);
   padding: 0.35em 0.7em;
   font-size: 0.82rem;
 }
 .markdown th {
-  background: #fafafa;
+  background: var(--c-code-bg);
   font-weight: 600;
 }
 .markdown hr {
   border: none;
-  border-top: 1px solid #e8e8ea;
+  border-top: 1px solid var(--c-edge);
   margin: 1.2em 0;
 }
 .markdown img {
