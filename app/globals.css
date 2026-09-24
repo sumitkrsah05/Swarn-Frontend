@@ -1,10 +1,18 @@
 @import "tailwindcss";
 
 /*
- * Theme tokens. Light (Fanout-style) is the default; dark applies when
+ * Theme tokens. Light is the default; dark applies when
  * <html data-theme="dark"> is set (see lib/theme.ts) or, with no stored
- * choice, when the OS prefers dark. Tailwind utilities (bg-panel, text-fg…)
- * read these through the @theme block below, so every screen follows.
+ * choice, when the OS prefers dark. Tailwind utilities (bg-panel, text-fg,
+ * bg-user-tint…) read these through the @theme block below, so every screen
+ * follows.
+ *
+ * Semantic colour roles (docs/guide.md §2.7):
+ *   accent (blue)   data, lineage, selection, CTAs
+ *   user   (orange) the user's words, derived columns
+ *   report (purple) reports
+ *   ask    (amber)  unread items, the agent asking a question
+ *   grey            history, text
  */
 :root,
 :root[data-theme="light"] {
@@ -14,18 +22,27 @@
   --c-panel: #ffffff;
   --c-raised: #f4f4f5;
   --c-hover: #f0f0f2;
-  --c-edge: #e8e8ea;
-  --c-edge-soft: #ededef;
+  --c-edge: rgba(0, 0, 0, 0.12);
+  --c-edge-soft: rgba(0, 0, 0, 0.07);
   --c-fg: #272727;
-  --c-muted: #6e6e6e;
-  --c-faint: #929292;
-  --c-accent: #6366f1;
+  --c-muted: #5c5c63;
+  --c-faint: #63636b;
+  --c-accent: #0f6cbd;
+  --c-on-accent: #ffffff;
+  --c-user: #c85a17;
+  --c-report: #7a5bb5;
+  --c-ask: #b7791f;
   --c-ok: #0f9d58;
   --c-warn: #e8822a;
   --c-err: #dc2626;
-  --c-violet: #6e56cf;
+  --c-violet: #7a5bb5;
   --c-code-bg: #fafafa;
-  --c-scroll: #c9c9cf;
+  --c-scroll: rgba(0, 0, 0, 0.28);
+  --sh-hair: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --sh-card: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --sh-pop: 0 2px 8px rgba(0, 0, 0, 0.12);
+  --sh-composer: 0 1px 6px rgba(32, 33, 36, 0.1), 0 1px 2px rgba(32, 33, 36, 0.06);
+  --sh-lift: 0 3px 10px rgba(0, 0, 0, 0.1);
   color-scheme: light;
 }
 
@@ -36,18 +53,28 @@
   --c-panel: #17181b;
   --c-raised: #1f2024;
   --c-hover: #24252a;
-  --c-edge: #2a2b31;
-  --c-edge-soft: #26272c;
+  --c-edge: rgba(255, 255, 255, 0.1);
+  --c-edge-soft: rgba(255, 255, 255, 0.06);
   --c-fg: #e6e6e9;
   --c-muted: #a0a0a8;
-  --c-faint: #6f7079;
-  --c-accent: #818cf8;
+  --c-faint: #8e8f98;
+  --c-accent: #4aa3f0;
+  --c-on-accent: #10121a;
+  --c-user: #f08a4b;
+  --c-report: #a98be6;
+  --c-ask: #f0b94b;
   --c-ok: #34c37a;
   --c-warn: #f0a04b;
   --c-err: #f26b6b;
-  --c-violet: #9d8cf0;
+  --c-violet: #a98be6;
   --c-code-bg: #131417;
-  --c-scroll: #3a3b42;
+  --c-scroll: rgba(255, 255, 255, 0.22);
+  /* dark mode uses borders instead of shadows */
+  --sh-hair: 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --sh-card: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --sh-pop: 0 0 0 1px rgba(255, 255, 255, 0.12);
+  --sh-composer: 0 0 0 1px rgba(255, 255, 255, 0.1);
+  --sh-lift: 0 0 0 1px rgba(255, 255, 255, 0.14);
   color-scheme: dark;
 }
 
@@ -59,20 +86,42 @@
     --c-panel: #17181b;
     --c-raised: #1f2024;
     --c-hover: #24252a;
-    --c-edge: #2a2b31;
-    --c-edge-soft: #26272c;
+    --c-edge: rgba(255, 255, 255, 0.1);
+    --c-edge-soft: rgba(255, 255, 255, 0.06);
     --c-fg: #e6e6e9;
     --c-muted: #a0a0a8;
-    --c-faint: #6f7079;
-    --c-accent: #818cf8;
+    --c-faint: #8e8f98;
+    --c-accent: #4aa3f0;
+    --c-on-accent: #10121a;
+    --c-user: #f08a4b;
+    --c-report: #a98be6;
+    --c-ask: #f0b94b;
     --c-ok: #34c37a;
     --c-warn: #f0a04b;
     --c-err: #f26b6b;
-    --c-violet: #9d8cf0;
+    --c-violet: #a98be6;
     --c-code-bg: #131417;
-    --c-scroll: #3a3b42;
+    --c-scroll: rgba(255, 255, 255, 0.22);
+    --sh-hair: 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --sh-card: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --sh-pop: 0 0 0 1px rgba(255, 255, 255, 0.12);
+    --sh-composer: 0 0 0 1px rgba(255, 255, 255, 0.1);
+    --sh-lift: 0 0 0 1px rgba(255, 255, 255, 0.14);
     color-scheme: dark;
   }
+}
+
+/* 10% tints of every role, computed from the current theme's colour. */
+:root {
+  --c-accent-tint: color-mix(in srgb, var(--c-accent) 10%, transparent);
+  --c-user-tint: color-mix(in srgb, var(--c-user) 10%, transparent);
+  --c-report-tint: color-mix(in srgb, var(--c-report) 10%, transparent);
+  --c-ask-tint: color-mix(in srgb, var(--c-ask) 10%, transparent);
+  --c-ok-tint: color-mix(in srgb, var(--c-ok) 10%, transparent);
+  --c-warn-tint: color-mix(in srgb, var(--c-warn) 10%, transparent);
+  --c-err-tint: color-mix(in srgb, var(--c-err) 10%, transparent);
+  --c-grey-tint: color-mix(in srgb, var(--c-fg) 5%, transparent);
+  --c-fill: color-mix(in srgb, var(--c-fg) 8%, transparent);
 }
 
 @theme inline {
@@ -81,16 +130,70 @@
   --color-raised: var(--c-raised);
   --color-hover: var(--c-hover);
   --color-edge: var(--c-edge);
+  --color-edge-soft: var(--c-edge-soft);
   --color-fg: var(--c-fg);
   --color-muted: var(--c-muted);
   --color-faint: var(--c-faint);
   --color-accent: var(--c-accent);
+  --color-on-accent: var(--c-on-accent);
+  --color-user: var(--c-user);
+  --color-report: var(--c-report);
+  --color-ask: var(--c-ask);
   --color-ok: var(--c-ok);
   --color-warn: var(--c-warn);
   --color-err: var(--c-err);
   --color-violet: var(--c-violet);
+  --color-code-bg: var(--c-code-bg);
+  --color-accent-tint: var(--c-accent-tint);
+  --color-user-tint: var(--c-user-tint);
+  --color-report-tint: var(--c-report-tint);
+  --color-ask-tint: var(--c-ask-tint);
+  --color-ok-tint: var(--c-ok-tint);
+  --color-warn-tint: var(--c-warn-tint);
+  --color-err-tint: var(--c-err-tint);
+  --color-grey-tint: var(--c-grey-tint);
+  --color-fill: var(--c-fill);
   --font-sans: var(--font-overused-grotesk);
   --font-mono: var(--font-plex-mono);
+  /* shadows: sm/md/lg from the spec plus the composer double shadow */
+  --shadow-hair: var(--sh-hair);
+  --shadow-card: var(--sh-card);
+  --shadow-pop: var(--sh-pop);
+  --shadow-composer: var(--sh-composer);
+  --shadow-lift: var(--sh-lift);
+  /* radii: 4 chips/inputs · 6 thread cards · 8 panels/tables · 12 composer · 16 canvas/pills */
+  --radius-chip: 4px;
+  --radius-card: 6px;
+  --radius-panel: 8px;
+  --radius-pop: 10px;
+  --radius-composer: 12px;
+  --radius-canvas: 16px;
+  /* the dense type ramp: 10 / 11 / 12 / 13 / 14 / 16 / 18 */
+  --text-10: 10px;
+  --text-10--line-height: 14px;
+  --text-11: 11px;
+  --text-11--line-height: 16px;
+  --text-12: 12px;
+  --text-12--line-height: 17px;
+  --text-13: 13px;
+  --text-13--line-height: 19px;
+  --text-14: 14px;
+  --text-14--line-height: 21px;
+  --text-16: 16px;
+  --text-16--line-height: 24px;
+  --text-18: 18px;
+  --text-18--line-height: 26px;
+  /* the app bar collapses its nav below this width */
+  --breakpoint-nav: 900px;
+  --breakpoint-phone: 700px;
+  --animate-shimmer: shimmer 2s linear infinite;
+  --animate-unread: unread-pulse 1.6s ease-in-out infinite;
+  --animate-wobble: wobble 1.4s ease-in-out infinite;
+  --animate-bounce-soft: bounce-soft 1.2s ease-in-out infinite;
+  --animate-fade-in: fade-in 600ms ease-out both;
+  --animate-fade-in-fast: fade-in 150ms ease-out both;
+  --animate-progress: progress 1.4s ease-in-out infinite;
+  --animate-spin-slow: spin 1.4s linear infinite;
 }
 
 body {
@@ -98,22 +201,192 @@ body {
   color: var(--foreground);
   font-family: var(--font-overused-grotesk), -apple-system, BlinkMacSystemFont,
     "Segoe UI", system-ui, sans-serif;
+  overflow-x: hidden;
 }
 
+/* ------------------------------------------------------------ scrollbars */
+/* Thin (6px) and revealed on hover: the thumb is transparent until the
+   scrolling element (or one of its descendants) is hovered. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: var(--c-scroll) transparent;
+}
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+*:hover::-webkit-scrollbar-thumb {
   background: var(--c-scroll);
-  border-radius: 5px;
-  border: 2px solid var(--c-bg);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* Markdown rendering (reports, playbook) */
+/* --------------------------------------------------------------- motion */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes unread-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.55;
+  }
+}
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+@keyframes bounce-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes progress {
+  0% {
+    left: -40%;
+    width: 40%;
+  }
+  50% {
+    width: 60%;
+  }
+  100% {
+    left: 100%;
+    width: 40%;
+  }
+}
+
+/* The active thinking step: a left-to-right gradient sweep over the text. */
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    var(--c-muted) 0%,
+    var(--c-muted) 35%,
+    var(--c-accent) 50%,
+    var(--c-muted) 65%,
+    var(--c-muted) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Faint 16px graph paper for the landing page. */
+.graph-paper {
+  background-color: var(--c-bg);
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--c-fg) 2.5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--c-fg) 2.5%, transparent) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* 56px scroll-fade gradients at the top and bottom of the thread scroller. */
+.scroll-fade {
+  --fade-color: var(--c-bg);
+  position: relative;
+}
+.scroll-fade::before,
+.scroll-fade::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 56px;
+  pointer-events: none;
+  z-index: 2;
+}
+.scroll-fade::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--fade-color), transparent);
+}
+.scroll-fade::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--fade-color), transparent);
+}
+
+/* Hover-revealed actions: opacity 0 → 1 over 150ms. */
+.reveal {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.group:hover .reveal,
+.group:focus-within .reveal,
+.reveal:focus-visible {
+  opacity: 1;
+}
+
+/* Lift on hover: 1px for thread cards, 2px for landing cards. */
+.lift-1 {
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+.lift-1:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sh-card);
+}
+.lift-2 {
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+.lift-2:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sh-pop);
+}
+
+/* Clamp helpers used by thread cards. */
+.clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ markdown */
+/* Report / playbook / answer rendering. `.markdown` is the compact variant;
+   `.document` is the 816px report typography from §2.6. */
 .markdown {
   font-size: 0.875rem;
   line-height: 1.65;
@@ -142,7 +415,8 @@ body {
   font-size: 1.05rem;
 }
 .markdown h1:first-child,
-.markdown h2:first-child {
+.markdown h2:first-child,
+.markdown p:first-child {
   margin-top: 0;
 }
 .markdown p,
@@ -218,4 +492,112 @@ body {
 .markdown img {
   max-width: 100%;
   border-radius: 8px;
+}
+
+/* Clean-document typography for reports (§2.6): 0.95rem / 1.7 */
+.document {
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.document h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.document h2 {
+  font-size: 1.4rem;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.document h3 {
+  font-size: 1.15rem;
+}
+.document blockquote {
+  border-left: 4px solid var(--c-edge);
+  background: var(--c-grey-tint);
+  padding: 0.5em 1em;
+  border-radius: 0 6px 6px 0;
+}
+.document pre code {
+  font-size: 0.85rem;
+}
+
+/* ---------------------------------------------------------- base polish */
+
+*,
+::before,
+::after {
+  border-color: var(--c-edge);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--c-accent) 26%, transparent);
+  color: var(--c-fg);
+}
+
+/* Visible keyboard focus everywhere, including elements without an explicit
+   focus-visible class. Pointer interaction never shows a ring. */
+:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Skip link: off-screen until focused. */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-200%);
+  background: var(--c-panel);
+  color: var(--c-fg);
+  border: 1px solid var(--c-edge);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+  box-shadow: var(--sh-pop);
+  transition: transform 0.15s ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .shimmer-text {
+    animation: none;
+    color: var(--c-accent);
+    background: none;
+  }
+}
+
+/* Native form controls follow the theme (date pickers, selects, checkboxes). */
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+/* The wordmark: light weight with a little tracking. */
+.wordmark {
+  font-weight: 300;
+  letter-spacing: 0.03em;
+}
+
+/* Vega-embed drops an actions menu and its own padding; keep it quiet. */
+.vega-embed {
+  width: 100%;
+}
+.vega-embed summary {
+  display: none;
 }

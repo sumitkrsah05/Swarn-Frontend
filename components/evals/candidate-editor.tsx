@@ -14,7 +14,7 @@ import {
   Input,
   Select,
   Textarea,
-} from "./primitives";
+} from "@/components/ui";
 
 const PROVIDERS: Provider[] = ["deployed", "openai-compatible", "anthropic", "hf-local", "mock"];
 const MOCK_BEHAVIORS: MockBehavior[] = ["reference", "echo", "fixed", "fail"];

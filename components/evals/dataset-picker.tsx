@@ -19,7 +19,7 @@ import {
   TD,
   TH,
   TableWrap,
-} from "./primitives";
+} from "@/components/ui";
 
 export function DatasetPicker({
   value,

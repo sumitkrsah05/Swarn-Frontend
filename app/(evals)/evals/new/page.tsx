@@ -29,7 +29,7 @@ import {
   Field,
   Loading,
   Textarea,
-} from "@/components/evals/primitives";
+} from "@/components/ui";
 import { DatasetPicker } from "@/components/evals/dataset-picker";
 import { CandidateEditor } from "@/components/evals/candidate-editor";
 import { YamlEditor } from "@/components/evals/yaml-editor";

@@ -17,7 +17,7 @@ export function wsLiveUrl(): string {
 
 // ---------------------------------------------------------------- types
 
-export type Method = "react" | "aide" | "team";
+export type Method = "react" | "aide" | "team" | "eval";
 export type JobStatus =
   | "queued"
   | "running"
@@ -50,6 +50,16 @@ export interface JobEvent {
   metric?: number | null;
   best_metric?: number | null;
   note?: string;
+  suspicious?: boolean;
+  // type: "approval_request" / "approval_answered" (the backend sends both ids)
+  id?: string;
+  request_id?: string;
+  question?: string;
+  options?: string[];
+  default?: string;
+  answer?: string;
+  // type: "progress" (eval)
+  message?: string;
 }
 
 /** result payload when a job completes (fields depend on method). */
@@ -82,6 +92,8 @@ export interface JobSummary {
   run_id: string | null;
   n_events: number;
   last_event: JobEvent | null;
+  resume_session_ids?: string[];
+  pending_approvals?: { request_id?: string; id?: string; question?: string; options?: string[]; default?: string }[];
 }
 
 export interface JobDetail extends JobSummary {
@@ -115,6 +127,12 @@ export interface SessionSummary {
   started_at: number;
 }
 
+/** Structured artifacts on a `tool_result` step (API.md, "Datasets and lineage"). */
+export interface StepArtifacts {
+  datasets: { name: string; rows: number; cols: number; parents: string[]; tool: string }[];
+  files: { path: string; kind: "chart" | "report" | "table" | "model" | "other"; dataset?: string | null }[];
+}
+
 export interface SessionStep {
   kind: StepKind;
   time: number;
@@ -127,6 +145,8 @@ export interface SessionStep {
     error_kind?: string;
     attempt?: number;
     reason?: string;
+    summary?: string;
+    artifacts?: StepArtifacts;
     [key: string]: unknown;
   };
 }
@@ -184,6 +204,71 @@ export interface WorkspaceListing {
   entries: WorkspaceEntry[];
 }
 
+// ------------------------------------------------------ datasets (/api/data)
+
+export type ColumnKind = "number" | "string" | "date" | "datetime" | "boolean" | "other";
+
+export interface DatasetColumn {
+  name: string;
+  dtype: string;
+  kind: ColumnKind;
+}
+
+export interface DatasetInfo {
+  name: string;
+  rows: number;
+  cols: number;
+  columns: DatasetColumn[];
+  parents: string[];
+  tool: string | null;
+  session_id: string | null;
+  step: number | null;
+  created_at: number | null;
+  /** columns not present in any parent dataset */
+  derived_columns: string[];
+}
+
+export interface RowFilter {
+  column: string;
+  op: "range" | "in" | "contains";
+  min?: number | string | null;
+  max?: number | string | null;
+  values?: unknown[];
+  text?: string;
+}
+
+export interface RowsQuery {
+  offset?: number;
+  /** ≤ 1000 */
+  limit?: number;
+  sort?: string;
+  desc?: boolean;
+  q?: string;
+  filters?: RowFilter[];
+}
+
+export interface RowsResponse {
+  name: string;
+  /** rows after search and filters */
+  total: number;
+  offset: number;
+  limit: number;
+  /** column descriptors in row order */
+  columns: DatasetColumn[];
+  rows: unknown[][];
+}
+
+export interface ColumnStats {
+  rows: number;
+  distinct: number;
+  blanks: number;
+  kind: ColumnKind;
+  min?: number | string | null;
+  max?: number | string | null;
+  mean?: number | null;
+  top: { value: unknown; count: number }[];
+}
+
 // ------------------------------------------------------------- ws frames
 
 export interface SessionFrame {
@@ -238,6 +323,26 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+async function apiFetchText(path: string): Promise<string> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { cache: "no-store" });
+  } catch {
+    throw new ApiError(0, `Cannot reach the API at ${API_BASE} — is the FastAPI server running?`);
+  }
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body && typeof body.detail === "string") detail = body.detail;
+    } catch {
+      /* non-JSON error body */
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return res.text();
+}
+
 // jobs
 
 export interface NewJobRequest {
@@ -270,6 +375,14 @@ export const api = {
       `/api/jobs/${encodeURIComponent(id)}/cancel`,
       { method: "POST" },
     ),
+
+  /** Answer a parked approval_request. 409 = it timed out and took its default. */
+  approveJob: (id: string, request_id: string, answer: string) =>
+    apiFetch<JobSummary>(`/api/jobs/${encodeURIComponent(id)}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ request_id, answer }),
+    }),
 
   // uploads
 
@@ -304,10 +417,44 @@ export const api = {
       `/api/workspace/files?path=${encodeURIComponent(path)}`,
     ),
 
+  /** Text of a workspace file (markdown reports, CSV previews, logs). */
+  getWorkspaceText: (path: string) =>
+    apiFetchText(`/api/workspace/file?path=${encodeURIComponent(path)}`),
+
   // playbook
 
   getPlaybook: () => apiFetch<{ playbook: string }>("/api/playbook"),
+
+  // datasets and lineage (/api/data/*)
+
+  listDatasets: () => apiFetch<{ datasets: DatasetInfo[] }>("/api/data/datasets"),
+
+  datasetRows: (name: string, q: RowsQuery = {}) => {
+    const params = new URLSearchParams();
+    params.set("offset", String(q.offset ?? 0));
+    params.set("limit", String(Math.min(q.limit ?? 500, 1000)));
+    if (q.sort) params.set("sort", q.sort);
+    if (q.desc) params.set("desc", "true");
+    if (q.q) params.set("q", q.q);
+    if (q.filters?.length) params.set("filters", JSON.stringify(q.filters));
+    return apiFetch<RowsResponse>(`/api/data/datasets/${encodeURIComponent(name)}/rows?${params.toString()}`);
+  },
+
+  datasetColumn: (name: string, column: string) =>
+    apiFetch<ColumnStats>(
+      `/api/data/datasets/${encodeURIComponent(name)}/columns/${encodeURIComponent(column)}`,
+    ),
 };
+
+/** Streamed CSV download of a registry dataset. */
+export function datasetExportUrl(name: string): string {
+  return `${API_BASE}/api/data/datasets/${encodeURIComponent(name)}/export?format=csv`;
+}
+
+/** True when the error is the "not in memory" 404 from /api/data. */
+export function isDatasetGone(e: unknown): boolean {
+  return e instanceof ApiError && e.status === 404;
+}
 
 /** Direct download / preview URLs (used in <a href> and <img src>). */
 export function runFileUrl(runId: string, path: string): string {

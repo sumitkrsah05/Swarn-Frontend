@@ -27,7 +27,7 @@ import {
   TD,
   TH,
   TableWrap,
-} from "@/components/evals/primitives";
+} from "@/components/ui";
 import { verdictTone } from "@/components/evals/run-comparisons";
 
 export default function ComparePage() {

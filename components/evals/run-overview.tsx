@@ -39,7 +39,7 @@ import {
   TD,
   TH,
   TableWrap,
-} from "./primitives";
+} from "@/components/ui";
 
 export function RunOverview({
   run,
@@ -140,7 +140,7 @@ export function RunOverview({
       <section>
         <h3 className="mb-2 text-sm font-semibold text-fg">Candidates</h3>
         {real.length === 0 && <p className="text-sm text-muted">No real candidates.</p>}
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className={`grid gap-4 ${real.length > 1 ? "xl:grid-cols-2" : ""}`}>
           {real.map((n) => (
             <CandidateCard
               key={n}
@@ -161,7 +161,7 @@ export function RunOverview({
                 (self-test: they prove the scoring works)
               </span>
             </h3>
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className={`grid gap-4 ${mocks.length > 1 ? "xl:grid-cols-2" : ""}`}>
               {mocks.map((n) => (
                 <CandidateCard
                   key={n}

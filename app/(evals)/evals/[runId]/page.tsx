@@ -20,7 +20,7 @@ import {
   RunStatusBadge,
   Tabs,
   Card,
-} from "@/components/evals/primitives";
+} from "@/components/ui";
 import { JobMonitor } from "@/components/evals/job-monitor";
 import { RunOverview } from "@/components/evals/run-overview";
 import { RunSlices } from "@/components/evals/run-slices";
@@ -102,7 +102,9 @@ function RunDetail({ runId }: { runId: string }) {
         <div className="flex flex-wrap items-center gap-3">
           <RunStatusBadge status={r.status} />
           <GatesBadge passed={s?.gates_passed} />
-          {job && <JobStatusBadge status={job.status} />}
+          {job && job.status !== "complete" && (
+            <JobStatusBadge status={job.status} />
+          )}
           {s?.generated_at != null && (
             <span className="font-mono text-xs text-muted">
               {typeof s.generated_at === "number" ? formatTime(s.generated_at) : s.generated_at}
@@ -159,21 +161,24 @@ function RunDetail({ runId }: { runId: string }) {
         ]}
       />
 
-      {tab === "overview" && (
-        <RunOverview
-          run={r}
-          catalog={catalog.data?.metrics}
-          onResume={(add) => resume.mutate(add)}
-          resuming={resume.isPending}
-          onGoToJudge={() => setTab("judge")}
-        />
-      )}
-      {tab === "slices" && <RunSlices summary={s} />}
-      {tab === "comparisons" && <RunComparisons summary={s} />}
-      {tab === "results" && <RunResults run={r} catalog={catalog.data?.metrics} />}
-      {tab === "report" && <RunReport run={r} />}
-      {tab === "judge" && <RunJudge run={r} catalog={catalog.data?.metrics} />}
-      {tab === "files" && <RunFiles runId={r.run_id} />}
+      {/* canvas-style bordered panel for the active tab (docs/guide.md §8.3) */}
+      <div className="min-w-0 rounded-canvas border border-edge bg-panel p-4">
+        {tab === "overview" && (
+          <RunOverview
+            run={r}
+            catalog={catalog.data?.metrics}
+            onResume={(add) => resume.mutate(add)}
+            resuming={resume.isPending}
+            onGoToJudge={() => setTab("judge")}
+          />
+        )}
+        {tab === "slices" && <RunSlices summary={s} />}
+        {tab === "comparisons" && <RunComparisons summary={s} />}
+        {tab === "results" && <RunResults run={r} catalog={catalog.data?.metrics} />}
+        {tab === "report" && <RunReport run={r} />}
+        {tab === "judge" && <RunJudge run={r} catalog={catalog.data?.metrics} />}
+        {tab === "files" && <RunFiles runId={r.run_id} />}
+      </div>
     </div>
   );
 }

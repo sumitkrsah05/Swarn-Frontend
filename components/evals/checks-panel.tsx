@@ -34,16 +34,18 @@ import {
   Banner,
   Button,
   Card,
+  CellText,
   Checkbox,
   Collapsible,
   Field,
   Input,
   KeyValue,
+  SectionLabel,
   TABLE,
   TD,
   TH,
   TableWrap,
-} from "./primitives";
+} from "@/components/ui";
 
 export interface ChecksApi {
   validate: (body: ConfigBody) => Promise<ValidateResponse>;
@@ -192,7 +194,7 @@ export function ChecksPanel({
             {validate.data.plan && <PlanSummary plan={validate.data.plan} />}
             {validate.data.dataset && (
               <div>
-                <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Dataset profile</div>
+                <SectionLabel className="mb-1">Dataset profile</SectionLabel>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 font-mono text-xs sm:grid-cols-4">
                   <Stat k="rows" v={fmtInt(validate.data.dataset.total_rows)} />
                   <Stat k="valid" v={fmtInt(validate.data.dataset.valid_rows)} />
@@ -260,7 +262,11 @@ export function ChecksPanel({
                         </Badge>
                       </td>
                       <td className={`${TD} font-mono text-xs`}>{fmtLatency(c.latency_s)}</td>
-                      <td className={`${TD} max-w-[20rem] whitespace-normal text-xs text-err`}>{c.error ?? ""}</td>
+                      <td className={TD}>
+                        <CellText width="20rem" mode="wrap" className="text-xs text-err">
+                          {c.error ?? ""}
+                        </CellText>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -435,7 +441,7 @@ function Stat({ k, v, warn }: { k: string; v: string; warn?: boolean }) {
 function PlanSummary({ plan }: { plan: NonNullable<ValidateResponse["plan"]> }) {
   return (
     <div>
-      <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Plan</div>
+      <SectionLabel className="mb-1">Plan</SectionLabel>
       <KeyValue
         items={[
           {

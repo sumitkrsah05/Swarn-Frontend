@@ -1,11 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { LiveProvider } from "@/lib/live";
 import { ToastProvider } from "@/components/toast";
-import { Sidebar } from "@/components/sidebar";
+import { AppShell } from "@/components/app-shell";
 import { QueryProvider } from "@/components/query-provider";
+import { WorkspaceProvider } from "@/lib/workspace-store";
+import { RunnerProvider } from "@/hooks/useWorkspaceRunner";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 
 const overusedGrotesk = localFont({
@@ -25,11 +27,24 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "swarn",
-  description: "Chat and dashboard for the swarn agent platform",
+  title: { default: "swarn", template: "%s · swarn" },
+  description:
+    "Analyse data with an agent that shows its work: a data-thread workspace, live jobs, session traces, and LLM evaluations.",
+  applicationName: "swarn",
+  icons: { icon: "/icon.svg" },
+  robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1012" },
+  ],
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
@@ -45,8 +60,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <QueryProvider>
           <LiveProvider>
             <ToastProvider>
-              <Sidebar />
-              <main className="ml-52 h-screen">{children}</main>
+              <WorkspaceProvider>
+                {/* one runner for every workspace: jobs keep streaming on any page */}
+                <RunnerProvider>
+                  <AppShell>{children}</AppShell>
+                </RunnerProvider>
+              </WorkspaceProvider>
             </ToastProvider>
           </LiveProvider>
         </QueryProvider>

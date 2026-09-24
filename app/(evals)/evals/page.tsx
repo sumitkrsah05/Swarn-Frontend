@@ -19,6 +19,7 @@ import {
 import {
   Badge,
   Button,
+  CellText,
   ConfirmButton,
   Empty,
   GatesBadge,
@@ -29,7 +30,7 @@ import {
   TD,
   TH,
   TableWrap,
-} from "@/components/evals/primitives";
+} from "@/components/ui";
 
 /** The one metric shown per candidate on the list: a judge metric if any. */
 function headlineMetric(c: HeadlineCandidate | undefined) {
@@ -85,7 +86,7 @@ export default function EvalRunsPage() {
             </Link>
             <Link
               href="/evals/new"
-              className="rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-white shadow-sm hover:opacity-90"
+              className="rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-on-accent shadow-hair hover:opacity-90"
             >
               New evaluation
             </Link>
@@ -116,7 +117,6 @@ export default function EvalRunsPage() {
                 <th className={TH}>Status</th>
                 <th className={TH}>Candidates · headline metric</th>
                 <th className={TH}>Gates</th>
-                <th className={TH}>Created</th>
                 <th className={TH}>Actions</th>
               </tr>
             </thead>
@@ -133,31 +133,36 @@ export default function EvalRunsPage() {
                       >
                         {r.run_id}
                       </Link>
-                      {live && (
-                        <div className="mt-1">
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <span className="text-[11px] text-faint" title={formatTime(r.created)}>
+                          {timeAgo(r.created)}
+                        </span>
+                        {live && (
                           <Badge tone="accent" pulse>
                             {r.job?.status}
                           </Badge>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
-                    <td className={`${TD} max-w-[22rem] whitespace-normal`} title={r.goal}>
-                      <span className="text-sm text-fg">{truncate(r.goal, 90) || "—"}</span>
+                    <td className={TD}>
+                      <CellText width="16rem" mode="wrap" title={r.goal} className="text-sm text-fg">
+                        {truncate(r.goal, 80) || "—"}
+                      </CellText>
                     </td>
                     <td className={TD}>
                       <RunStatusBadge status={r.status} />
                     </td>
                     <td className={TD}>
-                      <div className="space-y-0.5">
+                      <div className="max-w-[20rem] space-y-0.5">
                         {orderCandidates(r.candidates).map((name) => {
                           const m = headlineMetric(r.headline?.[name]);
                           return (
-                            <div key={name} className="flex items-baseline gap-2 font-mono text-xs">
-                              <span className={/^mock-/.test(name) ? "text-faint" : "text-fg"}>
+                            <div key={name} className="flex items-baseline gap-2 truncate font-mono text-xs">
+                              <span className={/^mock-/.test(name) ? "shrink-0 text-faint" : "shrink-0 text-fg"}>
                                 {name}
                               </span>
                               {m ? (
-                                <span className="text-muted">
+                                <span className="truncate text-muted">
                                   {m.name} {fmtNum(m.mean)}{" "}
                                   <span className="text-faint">
                                     {m.ci95 ? fmtCi(m.ci95[0], m.ci95[1]) : "[—, —]"}
@@ -178,18 +183,7 @@ export default function EvalRunsPage() {
                       <GatesBadge passed={r.gates_passed} />
                     </td>
                     <td className={TD}>
-                      <span className="font-mono text-xs text-muted" title={formatTime(r.created)}>
-                        {timeAgo(r.created)}
-                      </span>
-                    </td>
-                    <td className={TD}>
                       <div className="flex items-center gap-1">
-                        <Link
-                          href={`/evals/${encodeURIComponent(r.run_id)}`}
-                          className="rounded-md px-2 py-1 text-xs text-muted hover:bg-raised hover:text-fg"
-                        >
-                          open
-                        </Link>
                         <Link
                           href={`/evals/compare?run=${encodeURIComponent(r.run_id)}`}
                           className="rounded-md px-2 py-1 text-xs text-muted hover:bg-raised hover:text-fg"

@@ -21,11 +21,13 @@ import {
   Banner,
   Button,
   Card,
+  CellText,
   Empty,
   Field,
   InlineError,
   KeyValue,
   Loading,
+  SectionLabel,
   Select,
   TABLE,
   TD,
@@ -33,7 +35,7 @@ import {
   TableWrap,
   TextBlock,
   type Tone,
-} from "./primitives";
+} from "@/components/ui";
 
 const BAND_TONE: Record<string, Tone> = { strong: "ok", moderate: "warn", unreliable: "err" };
 
@@ -115,7 +117,7 @@ export function RunJudge({ run, catalog }: { run: RunDetail; catalog?: MetricInf
           <Diag label="format bias" value={diag.format_bias} />
           <Diag label="pairwise flip rates" value={diag.pairwise_flip_rates} />
           <div>
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Calibration</div>
+            <SectionLabel className="mb-1">Calibration</SectionLabel>
             {diag.calibration ? (
               <CalibrationCard c={diag.calibration} />
             ) : (
@@ -195,14 +197,20 @@ export function RunJudge({ run, catalog }: { run: RunDetail; catalog?: MetricInf
                   return (
                     <tr key={r.sample_id} className="bg-panel">
                       <td className={`${TD} font-mono text-xs text-accent`}>{r.sample_id}</td>
-                      <td className={`${TD} max-w-[18rem] whitespace-pre-wrap text-xs`} title={r.input}>
-                        {truncate(r.input, 160)}
+                      <td className={TD}>
+                        <CellText width="18rem" mode="pre" title={r.input} className="text-xs">
+                          {truncate(r.input, 160)}
+                        </CellText>
                       </td>
-                      <td className={`${TD} max-w-[18rem] whitespace-pre-wrap text-xs`} title={r.output ?? ""}>
-                        {truncate(r.output, 160)}
+                      <td className={TD}>
+                        <CellText width="18rem" mode="pre" title={r.output ?? ""} className="text-xs">
+                          {truncate(r.output, 160)}
+                        </CellText>
                       </td>
-                      <td className={`${TD} max-w-[18rem] whitespace-pre-wrap text-xs text-muted`} title={r.reference ?? ""}>
-                        {truncate(r.reference, 160)}
+                      <td className={TD}>
+                        <CellText width="18rem" mode="pre" title={r.reference ?? ""} className="text-xs text-muted">
+                          {truncate(r.reference, 160)}
+                        </CellText>
                       </td>
                       <td className={`${TD} font-mono text-xs`}>
                         {judgeMetric ? (

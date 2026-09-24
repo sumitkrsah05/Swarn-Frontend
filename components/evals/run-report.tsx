@@ -7,7 +7,7 @@ import type { RunDetail } from "@/api/types";
 import { evalKeys } from "@/hooks/useEvalData";
 import { useToast } from "@/components/toast";
 import { errorMessage } from "@/lib/evals";
-import { Button, Empty } from "./primitives";
+import { Button, Empty } from "@/components/ui";
 
 export function RunReport({ run }: { run: RunDetail }) {
   const toast = useToast();

@@ -2,7 +2,7 @@
 
 import type { ComparisonMetric, RunSummary } from "@/api/types";
 import { fmtCi, fmtInt, fmtNum } from "@/lib/evals";
-import { Badge, Card, Empty, TABLE, TD, TH, TableWrap, type Tone } from "./primitives";
+import { Badge, Card, Empty, TABLE, TD, TH, TableWrap, type Tone } from "@/components/ui";
 
 export function verdictTone(verdict: string | null | undefined): Tone {
   const v = (verdict ?? "").toLowerCase();

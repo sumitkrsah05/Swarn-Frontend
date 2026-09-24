@@ -16,6 +16,7 @@ import {
 import {
   Badge,
   Button,
+  CellText,
   Checkbox,
   Drawer,
   Empty,
@@ -23,13 +24,14 @@ import {
   InlineError,
   Input,
   Loading,
+  SectionLabel,
   Select,
   TABLE,
   TD,
   TH,
   TableWrap,
   TextBlock,
-} from "./primitives";
+} from "@/components/ui";
 
 const PAGE = 50;
 
@@ -182,8 +184,10 @@ export function RunResults({
                   })}
                   <td className={`${TD} font-mono text-xs text-muted`}>{fmtLatency(r.latency_s)}</td>
                   <td className={`${TD} font-mono text-xs text-muted`}>{r.cached ? "yes" : "no"}</td>
-                  <td className={`${TD} max-w-[16rem] truncate text-xs text-err`} title={r.error ?? undefined}>
-                    {r.error ?? ""}
+                  <td className={TD}>
+                    <CellText width="16rem" title={r.error ?? undefined} className="text-xs text-err">
+                      {r.error ?? ""}
+                    </CellText>
                   </td>
                 </tr>
               ))}
@@ -249,7 +253,7 @@ export function ResultDrawer({
           )}
 
           <section>
-            <h4 className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Scores</h4>
+            <SectionLabel as="h3" className="mb-1">Scores</SectionLabel>
             <TableWrap maxHeight="14rem">
               <table className={TABLE}>
                 <thead>
@@ -293,9 +297,7 @@ export function ResultDrawer({
 
           {judge && (
             <section className="space-y-3">
-              <h4 className="text-[11px] font-medium uppercase tracking-wide text-muted">
-                Judge criteria
-              </h4>
+              <SectionLabel as="h3">Judge criteria</SectionLabel>
               {judge.criteria && Object.keys(judge.criteria).length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {Object.entries(judge.criteria).map(([name, c]) => (

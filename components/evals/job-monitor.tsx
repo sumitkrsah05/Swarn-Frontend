@@ -36,7 +36,7 @@ import {
   JobStatusBadge,
   PassBadge,
   Select,
-} from "./primitives";
+} from "@/components/ui";
 
 export function JobMonitor({
   jobId,
@@ -292,7 +292,7 @@ export function ResultCard({ result }: { result: EvalJobResult }) {
       <div className="mt-4">
         <Link
           href={`/evals/${encodeURIComponent(result.run_id)}`}
-          className="inline-block rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-white hover:opacity-90"
+          className="inline-block rounded-md bg-accent px-3.5 py-1.5 text-sm font-medium text-on-accent hover:opacity-90"
         >
           Open run page →
         </Link>

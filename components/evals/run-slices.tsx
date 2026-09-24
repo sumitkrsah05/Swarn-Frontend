@@ -2,7 +2,7 @@
 
 import type { RunSummary } from "@/api/types";
 import { fmtCi, fmtInt, fmtNum, orderCandidates } from "@/lib/evals";
-import { Card, Empty, TABLE, TD, TH, TableWrap } from "./primitives";
+import { Card, Empty, TABLE, TD, TH, TableWrap } from "@/components/ui";
 
 /** value × metric tables, one per (candidate, metadata field). */
 export function RunSlices({ summary }: { summary: RunSummary | null }) {

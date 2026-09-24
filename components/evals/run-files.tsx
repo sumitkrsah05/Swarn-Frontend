@@ -4,7 +4,7 @@ import { runFileUrl } from "@/api/client";
 import { useRunFiles } from "@/hooks/useEvalData";
 import { formatBytes } from "@/lib/format";
 import { errorMessage } from "@/lib/evals";
-import { Empty, InlineError, Loading, TABLE, TD, TH, TableWrap } from "./primitives";
+import { Empty, InlineError, Loading, TABLE, TD, TH, TableWrap } from "@/components/ui";
 
 export function RunFiles({ runId }: { runId: string }) {
   const files = useRunFiles(runId);
