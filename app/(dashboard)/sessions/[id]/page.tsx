@@ -81,7 +81,7 @@ export default function SessionDetailPage({ params }: { params: Promise<{ id: st
             <span>{formatTime(session.started_at)}</span>
             <span>{formatDuration(session.duration_s)}</span>
           </span>
-          <OpenInWorkspaceButton build={() => workspaceFromSession(session)} />
+          <OpenInWorkspaceButton sessionId={session.id} build={() => workspaceFromSession(session)} />
         </div>
         {(tools.length > 0 || session.summary) && (
           <div className="mt-2 flex flex-wrap items-start gap-2">

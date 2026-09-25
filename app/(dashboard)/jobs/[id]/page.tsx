@@ -176,6 +176,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           )}
           {isAgent && (
             <OpenInWorkspaceButton
+              jobId={job.id}
+              sessionId={job.session_id}
               build={() => {
                 if (session) return workspaceFromSession(session);
                 const ws = workspaceFromJob(job, steps);

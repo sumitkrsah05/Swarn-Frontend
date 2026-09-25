@@ -23,7 +23,9 @@ const noop = () => {};
 
 export function StaticWorkspaceUiProvider({ ws, children }: { ws: Workspace; children: React.ReactNode }) {
   const toast = useToast();
-  const [focus, setFocusState] = useState<Focus | null>(ws.focus);
+  // undefined = the user has not chosen a card yet, so follow the record's own focus
+  const [chosen, setFocusState] = useState<Focus | null | undefined>(undefined);
+  const focus = chosen === undefined ? ws.focus : chosen;
   const [dialog, setDialog] = useState<DialogRequest | null>(null);
   const running = ws.turns.find((t) => t.status === "queued" || t.status === "running");
   const datasetsQuery = useQuery({ queryKey: ["data", "datasets"], queryFn: api.listDatasets, refetchInterval: running ? 4000 : 60000 });
@@ -103,7 +105,18 @@ function StaticSurface({ className }: { className: string }) {
 }
 
 /** "Open in workspace": import a one-turn workspace and go to it. */
-export function OpenInWorkspaceButton({ build, label = "Open in workspace" }: { build: () => Workspace | null; label?: string }) {
+export function OpenInWorkspaceButton({
+  build,
+  jobId,
+  sessionId,
+  label = "Open in workspace",
+}: {
+  build: () => Workspace | null;
+  /** when a workspace already holds this job / session, go there instead of importing a copy */
+  jobId?: string | null;
+  sessionId?: string | null;
+  label?: string;
+}) {
   const actions = useWorkspaceActions();
   const router = useRouter();
   const toast = useToast();
@@ -112,6 +125,18 @@ export function OpenInWorkspaceButton({ build, label = "Open in workspace" }: { 
       size="sm"
       variant="primary"
       onClick={() => {
+        // the workspace that started this run keeps it: focus its turn and go back
+        for (const w of actions.getState().workspaces) {
+          const turn = w.turns.find((t) => (jobId && t.jobId === jobId) || (sessionId && t.sessionId === sessionId));
+          if (turn) {
+            const running = turn.status === "queued" || turn.status === "running";
+            const focus: Focus = running || !turn.answer ? { kind: "turn", turnId: turn.id } : { kind: "answer", turnId: turn.id };
+            actions.update(w.id, (cur) => ({ ...cur, focus }));
+            actions.setActive(w.id);
+            router.push("/");
+            return;
+          }
+        }
         const ws = build();
         if (!ws) {
           toast("error", "Nothing to import yet.");

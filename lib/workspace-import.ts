@@ -106,7 +106,8 @@ export function workspaceFromJob(job: JobDetail, steps: SessionStep[]): Workspac
     createdAt: job.created,
     updatedAt: now,
     turns: [turn],
-    focus: null,
+    // the canvas opens straight away: the live timeline while it runs, the answer after
+    focus: running || !turn.answer ? { kind: "turn", turnId: turn.id } : { kind: "answer", turnId: turn.id },
     unread: [],
     hiddenDatasets: [],
   };
