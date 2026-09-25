@@ -6,7 +6,7 @@
 
 import type { JobDetail, SessionDetail, SessionStep } from "./api";
 import { artifactsFromSteps } from "./artifacts";
-import { STEPS_CAP, titleFrom, type Turn, type TurnStatus, type Workspace } from "./workspace";
+import { STEPS_CAP, titleFrom, uid, type Turn, type TurnStatus, type Workspace } from "./workspace";
 
 /** Strip the data-directory note the server appends to a task. */
 export function promptFromTask(task: string): string {
@@ -37,7 +37,7 @@ export function turnFromSteps(init: {
   const complete = init.steps.find((s) => s.kind === "complete");
   const answer = init.answer ?? (typeof complete?.data.summary === "string" ? complete.data.summary : undefined);
   return {
-    id: init.id ?? crypto.randomUUID(),
+    id: init.id ?? uid(),
     parentId: null,
     prompt: init.prompt,
     jobId: init.jobId ?? null,
@@ -69,10 +69,10 @@ export function turnFromSession(session: SessionDetail): Turn {
 /** A one-turn workspace from a session, focused on its answer. */
 export function workspaceFromSession(session: SessionDetail, name?: string): Workspace {
   const turn = turnFromSession(session);
-  turn.id = crypto.randomUUID();
+  turn.id = uid();
   const now = Date.now() / 1000;
   return {
-    id: crypto.randomUUID(),
+    id: uid(),
     name: name ?? titleFrom(turn.prompt),
     createdAt: session.started_at || now,
     updatedAt: now,

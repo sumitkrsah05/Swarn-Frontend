@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   deleteChart,
   deleteSubtree,
@@ -11,6 +11,7 @@ import {
   setFocus,
   subtreeIds,
   threadCount,
+  uid,
   type Turn,
   type Workspace,
 } from "./workspace";
@@ -171,5 +172,25 @@ describe("sanitizeWorkspaces", () => {
 describe("threadCount", () => {
   it("counts roots plus forks", () => {
     expect(threadCount(tree())).toBe(2);
+  });
+});
+
+describe("uid", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("makes v4-shaped ids when crypto.randomUUID is unavailable (plain-http origins)", () => {
+    const real = globalThis.crypto;
+    vi.stubGlobal("crypto", { getRandomValues: (a: Uint8Array) => real.getRandomValues(a) });
+    const a = uid();
+    const b = uid();
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(a).not.toBe(b);
+    // and the workspace constructors keep working in that environment
+    expect(makeWorkspace("x").id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("prefers the native randomUUID when it exists", () => {
+    vi.stubGlobal("crypto", { randomUUID: () => "native-id", getRandomValues: () => undefined });
+    expect(uid()).toBe("native-id");
   });
 });

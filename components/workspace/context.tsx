@@ -25,6 +25,7 @@ import {
   setFocus,
   subtreeIds,
   turnById,
+  uid,
   updateTurn,
   upsertTurn,
   type ArtifactRef,
@@ -202,7 +203,7 @@ export function WorkspaceUiProvider({ ws, children }: { ws: Workspace; children:
   const addVegaChart = useCallback(
     (parentTurnId: string | null, chart: Omit<ChartArtifact, "id" | "kind" | "step" | "tool">, prompt: string) => {
       const turn = makeTurn({ prompt, parentId: parentTurnId, manual: true });
-      turn.artifacts.charts.push({ ...chart, id: crypto.randomUUID(), kind: "vega", step: 0, tool: "quick_chart" });
+      turn.artifacts.charts.push({ ...chart, id: uid(), kind: "vega", step: 0, tool: "quick_chart" });
       actions.update(ws.id, (w) => setFocus(upsertTurn(w, turn), { kind: "chart", turnId: turn.id, index: 0 }));
     },
     [actions, ws.id],

@@ -137,6 +137,23 @@ export interface Workspace {
   hiddenDatasets?: string[];
 }
 
+/**
+ * A v4 UUID that also works on plain-HTTP origins: `crypto.randomUUID` exists
+ * only in secure contexts (HTTPS / localhost), and the app is often opened at
+ * a VM's IP over http.
+ */
+export function uid(): string {
+  const c = typeof globalThis.crypto !== "undefined" ? globalThis.crypto : undefined;
+  if (c && typeof c.randomUUID === "function") return c.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (c && typeof c.getRandomValues === "function") c.getRandomValues(bytes);
+  else for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 // ------------------------------------------------------------ constructors
 
 export function emptyArtifacts(): TurnArtifacts {
@@ -152,7 +169,7 @@ export function titleFrom(text: string, fallback = "Untitled workspace"): string
 export function makeWorkspace(name?: string): Workspace {
   const now = Date.now() / 1000;
   return {
-    id: crypto.randomUUID(),
+    id: uid(),
     name: name?.trim() || "Untitled workspace",
     createdAt: now,
     updatedAt: now,
@@ -173,7 +190,7 @@ export function makeTurn(init: {
   intent?: Turn["intent"];
 }): Turn {
   return {
-    id: crypto.randomUUID(),
+    id: uid(),
     parentId: init.parentId,
     parentArtifact: init.parentArtifact,
     prompt: init.prompt,
@@ -451,7 +468,7 @@ function sanitizeArtifacts(raw: unknown): TurnArtifacts {
       .filter((c) => c && typeof c === "object")
       .map((c) => {
         const o = c as ChartArtifact;
-        return { ...o, id: o.id || o.path || crypto.randomUUID(), kind: o.kind === "vega" ? "vega" : "png" };
+        return { ...o, id: o.id || o.path || uid(), kind: o.kind === "vega" ? "vega" : "png" };
       }),
     reports: arr(a.reports).filter((r) => r && typeof r === "object") as ReportArtifact[],
     files: arr(a.files).filter((f) => f && typeof f === "object") as FileArtifact[],
@@ -549,7 +566,7 @@ export function migrateThreadsV1(raw: unknown): Workspace[] {
     const messages = (Array.isArray(t.messages) ? t.messages : []) as V1Message[];
     const createdAt = num(t.createdAt, Date.now() / 1000);
     const ws: Workspace = {
-      id: typeof t.id === "string" ? `v1-${t.id}` : crypto.randomUUID(),
+      id: typeof t.id === "string" ? `v1-${t.id}` : uid(),
       name: str(t.title) || titleFrom(messages.find((m) => m.role === "user")?.text ?? ""),
       createdAt,
       updatedAt: createdAt,
@@ -565,7 +582,7 @@ export function migrateThreadsV1(raw: unknown): Workspace[] {
       const reply = messages[i + 1]?.role === "assistant" ? messages[i + 1] : undefined;
       const status: TurnStatus = m.failure ? "failed" : reply ? "complete" : "cancelled";
       const turn: Turn = {
-        id: crypto.randomUUID(),
+        id: uid(),
         parentId,
         prompt: str(m.text),
         attachment: m.attachment,
@@ -609,7 +626,7 @@ export function importWorkspace(text: string): Workspace | null {
     const [ws] = sanitizeWorkspaces([raw]);
     if (!ws) return null;
     // a fresh id so an import never clobbers the original
-    return { ...ws, id: crypto.randomUUID(), updatedAt: Date.now() / 1000 };
+    return { ...ws, id: uid(), updatedAt: Date.now() / 1000 };
   } catch {
     return null;
   }

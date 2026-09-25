@@ -18,6 +18,7 @@ import { api, ApiError, type JobDetail, type JobEvent, type SessionDetail, type 
 import { formatMetric, formatTime } from "@/lib/format";
 import { useLiveFrames } from "@/lib/live";
 import { workspaceFromJob, workspaceFromSession } from "@/lib/workspace-import";
+import { uid } from "@/lib/workspace";
 import { useToast } from "@/components/toast";
 import { Markdown } from "@/components/markdown";
 import { OpenInWorkspaceButton, StaticThread } from "@/components/workspace/static-thread";
@@ -181,7 +182,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               build={() => {
                 if (session) return workspaceFromSession(session);
                 const ws = workspaceFromJob(job, steps);
-                return { ...ws, id: crypto.randomUUID(), turns: ws.turns.map((t) => ({ ...t, id: crypto.randomUUID() })) };
+                return { ...ws, id: uid(), turns: ws.turns.map((t) => ({ ...t, id: uid() })) };
               }}
             />
           )}
