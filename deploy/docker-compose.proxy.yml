@@ -1,0 +1,41 @@
+# Optional override: one origin (and HTTPS) through Caddy.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d --build
+#
+# Set SITE_ADDRESS in .env:
+#   SITE_ADDRESS=swarn.example.com   → automatic HTTPS (ports 80 + 443, DNS must point here)
+#   SITE_ADDRESS=:80                 → plain HTTP on the VM's IP
+# The web app is then built for a same-origin API ("/") and the API is only
+# reachable through the proxy.
+
+services:
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_SWARN_API: "/"
+    ports: !reset []
+
+  api:
+    environment:
+      SWARN_CORS_ORIGINS: "http://${SITE_ADDRESS:-localhost},https://${SITE_ADDRESS:-localhost}"
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,30 @@
+{$SITE_ADDRESS}
+
+encode gzip
+
+# the API and its live websocket
+handle /api/* {
+	reverse_proxy api:8420
+}
+handle /ws/* {
+	reverse_proxy api:8420
+}
+# FastAPI's interactive docs (linked from the app bar's ⋮ menu)
+handle /docs* {
+	reverse_proxy api:8420
+}
+handle /openapi.json {
+	reverse_proxy api:8420
+}
+
+# everything else is the Next.js app
+handle {
+	reverse_proxy web:3000
+}
+
+# Optional: protect the whole site with a password. Generate the hash with
+#   docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your-password'
+# then uncomment:
+# basic_auth {
+# 	swarn <paste-the-hash-here>
+# }

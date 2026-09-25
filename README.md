@@ -52,6 +52,13 @@ docker build --build-arg NEXT_PUBLIC_SWARN_API=http://api-host:8420 -t swarn-fro
 docker run -p 3000:3000 swarn-frontend
 ```
 
+## Deploying on a VM
+
+`deploy/` holds a Compose stack (API + web, optional Caddy proxy with HTTPS)
+and a step-by-step guide: see [deploy/README.md](deploy/README.md). The
+backend image is `agent2/Dockerfile`; the web image is this repo's
+`Dockerfile` with `NEXT_PUBLIC_SWARN_API` baked in at build time.
+
 ## Routes
 
 | Route | Screen |

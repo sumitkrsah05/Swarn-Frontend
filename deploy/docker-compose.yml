@@ -1,0 +1,62 @@
+# swarn on one VM: the API (agent2) and the web app (swarn-frontend).
+#
+# Expected layout on the machine (two sibling checkouts):
+#   <root>/agent2/            ← backend, built from ../../agent2
+#   <root>/swarn-frontend/    ← frontend, built from ..
+#
+# Usage (from this folder):
+#   cp .env.example .env         # PUBLIC_HOST, ports
+#   cp api.env.example api.env   # model endpoint + keys
+#   mkdir -p data/{workspace,sessions,runs,knowledge,aide-runs} && sudo chown -R 1000:1000 data
+#   docker compose up -d --build
+#
+# The browser talks to BOTH services directly (web on WEB_PORT, API on
+# API_PORT), so PUBLIC_HOST must be the address users type in the browser.
+# For one origin + HTTPS use docker-compose.proxy.yml as an override.
+
+name: swarn
+
+services:
+  api:
+    build:
+      context: ../../agent2
+      dockerfile: Dockerfile
+    image: swarn-api:latest
+    restart: unless-stopped
+    env_file:
+      - api.env
+    environment:
+      # the origins the browser loads the web app from
+      SWARN_CORS_ORIGINS: "http://${PUBLIC_HOST:?set PUBLIC_HOST in deploy/.env}:${WEB_PORT:-3000},http://localhost:${WEB_PORT:-3000}"
+      # generated code runs inside the api container; see the guide for the
+      # Docker-in-Docker alternative
+      SWARN_SANDBOX: ${SWARN_SANDBOX:-subprocess}
+    volumes:
+      - ./data/workspace:/app/workspace
+      - ./data/sessions:/app/sessions
+      - ./data/runs:/app/runs
+      - ./data/knowledge:/app/knowledge
+      - ./data/aide-runs:/app/agent/runs
+    ports:
+      - "${API_PORT:-8420}:8420"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8420/api/jobs"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+  web:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      args:
+        # inlined at build time: rebuild the web image if PUBLIC_HOST changes
+        NEXT_PUBLIC_SWARN_API: "http://${PUBLIC_HOST:?set PUBLIC_HOST in deploy/.env}:${API_PORT:-8420}"
+    image: swarn-web:latest
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy

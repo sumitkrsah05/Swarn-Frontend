@@ -406,12 +406,28 @@ export function RunnerProvider({ children }: { children: ReactNode }) {
     (wsId: string, turnId: string) => {
       const ws = actions.getState().workspaces.find((w) => w.id === wsId);
       const turn = turnById(ws, turnId);
-      if (!turn?.jobId) return;
-      api.cancelJob(turn.jobId).catch((e) => {
-        toast("error", e instanceof Error ? e.message : "Failed to cancel the run");
-      });
+      if (!turn || !isRunning(turn)) return;
+      const jobId = turn.jobId;
+      // Stop takes effect here and now: the turn is closed, the composer
+      // unlocks and no further frames or polls touch it. The server abandons
+      // the run at its next checkpoint (between tool calls); a step that was
+      // already executing finishes on its own and is simply not shown.
+      if (jobId) {
+        forget(jobId);
+        for (const [sid, t] of sessionToTurn.current) if (t.turnId === turnId) sessionToTurn.current.delete(sid);
+        api.cancelJob(jobId).catch((e) => {
+          toast("error", e instanceof Error ? e.message : "Failed to tell the server to stop");
+        });
+      }
+      patchTurn({ wsId, turnId }, (t) => ({
+        ...t,
+        status: "cancelled",
+        failure: "Stopped. The server abandons the run at its next step.",
+        finishedAt: Date.now() / 1000,
+        question: undefined,
+      }));
     },
-    [actions, toast],
+    [actions, forget, patchTurn, toast],
   );
 
   const answer = useCallback(

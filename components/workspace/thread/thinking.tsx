@@ -13,6 +13,7 @@ import type { Turn } from "@/lib/workspace";
 import {
   AlertIcon,
   BarChartIcon,
+  CheckIcon,
   DocumentIcon,
   ErrorIcon,
   GutterRow,
@@ -102,35 +103,71 @@ export function thinkingRows(steps: SessionStep[]): ThinkingRow[] {
 
 const SHOWN = 8;
 
+/** One banner row: slides in when it appears, sweeps while active, settles with a check. */
+function StepRow({ row, elapsed }: { row: ThinkingRow; elapsed: string }) {
+  const tone = row.tone === "err" ? "text-err" : row.tone === "warn" ? "text-warn" : row.active ? "text-fg" : "text-faint";
+  const done = !row.active && row.tone === "muted";
+  return (
+    <div className={`flex items-center gap-1.5 text-11 italic leading-5 transition-colors duration-500 animate-step-in ${tone} ${row.active ? "step-active" : ""}`}>
+      <span className={`relative z-[1] flex h-3.5 w-3.5 shrink-0 items-center justify-center ${row.active ? "text-accent" : ""}`}>
+        {done ? (
+          <span key="done" className="flex items-center justify-center text-ok animate-pop">
+            <CheckIcon size={11} />
+          </span>
+        ) : (
+          stepIconNode(row.icon)
+        )}
+      </span>
+      {row.active ? (
+        <Shimmer className="relative z-[1] truncate trail-dots">{row.label.replace(/…$/, "")}</Shimmer>
+      ) : (
+        <span className="truncate">{row.label}</span>
+      )}
+      {row.active && <span className="relative z-[1] ml-auto shrink-0 font-mono text-10 not-italic text-faint tabular-nums">{elapsed}</span>}
+    </div>
+  );
+}
+
 export function ThinkingSteps({ turn, lineage }: { turn: Turn; lineage: boolean }) {
   const rows = useMemo(() => thinkingRows(turn.steps), [turn.steps]);
   const active = rows.find((r) => r.active);
   const elapsed = useTicker(active?.since ?? turn.startedAt, true);
   const hidden = Math.max(0, rows.length - SHOWN);
   const shown = rows.slice(-SHOWN);
+  const done = rows.filter((r) => !r.active && r.tone === "muted").length;
   return (
     <GutterRow icon={<SpinnerIcon size={12} />} lineage={lineage} iconTone="accent">
-      <div className="rounded-card border border-edge bg-panel px-2 py-1.5" aria-live="off">
+      <div className="relative overflow-hidden rounded-card border border-edge bg-panel px-2 py-1.5 animate-card-in" aria-live="off">
         {rows.length === 0 && (
-          <div className="flex items-center gap-1.5 text-11 italic text-muted">
-            <SparkleIcon size={11} />
-            <Shimmer>{turn.status === "queued" ? "waiting for a worker…" : "thinking…"}</Shimmer>
-            <span className="ml-auto font-mono text-10 not-italic text-faint">{elapsed}</span>
+          <div className="flex items-center gap-1.5 text-11 italic text-muted animate-step-in">
+            <span className="flex h-3.5 w-3.5 items-center justify-center">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-breathe motion-reduce:animate-none" />
+            </span>
+            <Shimmer className="trail-dots">{turn.status === "queued" ? "waiting for a worker" : "thinking"}</Shimmer>
+            <span className="ml-auto font-mono text-10 not-italic text-faint tabular-nums">{elapsed}</span>
           </div>
         )}
-        {hidden > 0 && <div className="pb-0.5 text-10 italic text-faint">{hidden} earlier steps</div>}
-        {shown.map((r) => (
-          <div key={r.key} className={`flex items-center gap-1.5 text-11 italic leading-5 ${r.tone === "err" ? "text-err" : r.tone === "warn" ? "text-warn" : r.active ? "text-fg" : "text-faint"}`}>
-            <span className="shrink-0">{stepIconNode(r.icon)}</span>
-            {r.active ? <Shimmer className="truncate">{r.label}</Shimmer> : <span className="truncate">{r.label}</span>}
-            {r.active && <span className="ml-auto shrink-0 font-mono text-10 not-italic text-faint">{elapsed}</span>}
+        {hidden > 0 && (
+          <div className="flex items-center gap-1.5 pb-0.5 text-10 italic text-faint">
+            <CheckIcon size={10} className="text-ok" />
+            {hidden} earlier steps
           </div>
+        )}
+        {shown.map((r) => (
+          <StepRow key={r.key} row={r} elapsed={elapsed} />
         ))}
         {rows.length > 0 && !active && (
-          <div className="flex items-center gap-1.5 text-11 italic text-fg">
-            <SparkleIcon size={11} />
-            <Shimmer>thinking…</Shimmer>
-            <span className="ml-auto font-mono text-10 not-italic text-faint">{elapsed}</span>
+          <div className="flex items-center gap-1.5 text-11 italic text-fg step-active animate-step-in">
+            <span className="relative z-[1] flex h-3.5 w-3.5 items-center justify-center">
+              <span className="h-1.5 w-1.5 rounded-full bg-accent animate-breathe motion-reduce:animate-none" />
+            </span>
+            <Shimmer className="relative z-[1] trail-dots">thinking</Shimmer>
+            <span className="relative z-[1] ml-auto font-mono text-10 not-italic text-faint tabular-nums">{elapsed}</span>
+          </div>
+        )}
+        {done > 0 && (
+          <div className="mt-1 h-0.5 overflow-hidden rounded-full bg-grey-tint" aria-hidden>
+            <div className="h-full rounded-full bg-accent/60 transition-[width] duration-700 ease-out" style={{ width: `${Math.min(92, 12 + done * 9)}%` }} />
           </div>
         )}
       </div>

@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# deployment secrets and data (see deploy/README.md)
+/deploy/api.env
+/deploy/data/

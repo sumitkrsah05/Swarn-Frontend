@@ -64,7 +64,9 @@ function Harness() {
       >
         ask
       </button>
+      <button onClick={() => ws && turn && runner.stop(ws.id, turn.id)}>stop</button>
       <div data-testid="status">{turn?.status ?? "none"}</div>
+      <div data-testid="failure">{turn?.failure ?? ""}</div>
       <div data-testid="answer">{turn?.answer ?? ""}</div>
       <div data-testid="charts">{turn?.artifacts.charts.map((c) => c.path).join(",") ?? ""}</div>
       <div data-testid="focus">{ws?.focus ? JSON.stringify(ws.focus) : "null"}</div>
@@ -92,6 +94,7 @@ describe("useWorkspaceRunner", () => {
     apiMock.createJob.mockReset();
     apiMock.getJob.mockReset();
     apiMock.getSession.mockReset();
+    apiMock.cancelJob.mockReset();
     apiMock.getSession.mockRejectedValue(new Error("no trace"));
   });
   afterEach(() => {
@@ -165,6 +168,36 @@ describe("useWorkspaceRunner", () => {
     expect(screen.getByTestId("session").textContent).toBe("sess-1");
     // the user never focused anything, so completion focuses the answer
     expect(JSON.parse(screen.getByTestId("focus").textContent as string)).toMatchObject({ kind: "answer" });
+  });
+
+  it("Stop closes the turn immediately and asks the server to cancel", async () => {
+    apiMock.createJob.mockResolvedValue(job({ status: "queued", n_events: 0, events: [] }));
+    apiMock.getJob.mockResolvedValue(job({ status: "running" }));
+    apiMock.cancelJob.mockResolvedValue({});
+    mount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      screen.getByText("ask").click();
+      await vi.advanceTimersByTimeAsync(2600);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("running");
+    await act(async () => {
+      screen.getByText("stop").click();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(apiMock.cancelJob).toHaveBeenCalledWith("job-1");
+    expect(screen.getByTestId("status").textContent).toBe("cancelled");
+    expect(screen.getByTestId("failure").textContent).toMatch(/Stopped/);
+    // a late frame or poll for the stopped job no longer reopens the turn
+    const calls = apiMock.getJob.mock.calls.length;
+    await act(async () => {
+      live.handler?.({ channel: "job", job_id: "job-1", method: "react", status: "running", task: "t", event: { ts: 3, type: "status", status: "running" } });
+      await vi.advanceTimersByTimeAsync(2600);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("cancelled");
+    expect(apiMock.getJob.mock.calls.length).toBe(calls);
   });
 
   it("marks the turn failed with a retry hint when the server forgot the job", async () => {

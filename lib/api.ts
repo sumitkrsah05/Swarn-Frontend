@@ -11,8 +11,16 @@ export const API_BASE = (
   "http://localhost:8420"
 ).replace(/\/+$/, "");
 
+/**
+ * The websocket URL. An absolute API base is rewritten http→ws; an empty or
+ * relative base (the app served behind one reverse proxy with the API) is
+ * resolved against the page's own origin.
+ */
 export function wsLiveUrl(): string {
-  return API_BASE.replace(/^http/, "ws") + "/ws/live";
+  if (/^https?:\/\//i.test(API_BASE)) return API_BASE.replace(/^http/i, "ws") + "/ws/live";
+  if (typeof window === "undefined") return "ws://localhost:8420/ws/live";
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}${API_BASE}/ws/live`;
 }
 
 // ---------------------------------------------------------------- types

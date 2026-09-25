@@ -7,16 +7,31 @@
  *  5. report cards · 6. answer card (plus the agent question, if any).
  */
 
+import { useState } from "react";
 import type { Turn } from "@/lib/workspace";
 import { useWorkspaceUi } from "../context";
 import { AnswerCard, ChartThumb, MergeRow, PlanLine, PromptCard, ReportCard, TableCard } from "./rows";
 import { ThinkingSteps } from "./thinking";
 import { GutterRow, RobotIcon } from "@/components/ui";
 
+/** Cards animate in only while their turn is live (or finished moments ago). */
+function Enter({ live, index, children }: { live: boolean; index: number; children: React.ReactNode }) {
+  if (!live) return <>{children}</>;
+  return (
+    <div className="animate-card-in" style={{ animationDelay: `${Math.min(index, 6) * 60}ms` }}>
+      {children}
+    </div>
+  );
+}
+
 export function TurnRows({ turn, first, last }: { turn: Turn; first: boolean; last: boolean }) {
   const ui = useWorkspaceUi();
   const lineage = ui.lineage.has(turn.id);
   const running = turn.status === "queued" || turn.status === "running";
+  // cards that arrived while this view was open animate in; older ones sit still
+  const [mountedAt] = useState(() => Date.now() / 1000);
+  const live = running || (turn.finishedAt != null && turn.finishedAt >= mountedAt);
+  let order = 0;
   const hidden = new Set(ui.ws.hiddenDatasets ?? []);
   const datasets = turn.artifacts.datasets.filter((d) => !hidden.has(d.name));
   const charts = turn.artifacts.charts;
@@ -48,18 +63,34 @@ export function TurnRows({ turn, first, last }: { turn: Turn; first: boolean; la
       {datasets.map((d) => (
         <div key={d.name}>
           {d.parents.length > 1 && <MergeRow parents={d.parents} lineage={lineage} />}
-          <TableCard turn={turn} dataset={d} lineage={lineage} />
+          <Enter live={live} index={order++}>
+            <TableCard turn={turn} dataset={d} lineage={lineage} />
+          </Enter>
           {chartsFor(d.name).map(({ c, i }) => (
-            <ChartThumb key={c.id} turn={turn} chart={c} index={i} lineage={lineage} />
+            <Enter key={c.id} live={live} index={order++}>
+              <ChartThumb turn={turn} chart={c} index={i} lineage={lineage} />
+            </Enter>
           ))}
         </div>
       ))}
-      {charts.map((c, i) => (placed.has(i) ? null : <ChartThumb key={c.id} turn={turn} chart={c} index={i} lineage={lineage} />))}
+      {charts.map((c, i) =>
+        placed.has(i) ? null : (
+          <Enter key={c.id} live={live} index={order++}>
+            <ChartThumb turn={turn} chart={c} index={i} lineage={lineage} />
+          </Enter>
+        ),
+      )}
       {turn.artifacts.reports.map((r, i) => (
-        <ReportCard key={`${r.htmlPath ?? r.mdPath ?? i}`} turn={turn} report={r} index={i} lineage={lineage} />
+        <Enter key={`${r.htmlPath ?? r.mdPath ?? i}`} live={live} index={order++}>
+          <ReportCard turn={turn} report={r} index={i} lineage={lineage} />
+        </Enter>
       ))}
       {composingReport && <ReportCard turn={turn} report={null} index={-1} lineage={lineage} />}
-      {hasAnswer && <AnswerCard turn={turn} lineage={lineage} last={last && lastRowIsAnswer} />}
+      {hasAnswer && (
+        <Enter live={live} index={order++}>
+          <AnswerCard turn={turn} lineage={lineage} last={last && lastRowIsAnswer} />
+        </Enter>
+      )}
       {!hasAnswer && rowsAfter === 0 && !running && !last && <div className="h-1" />}
     </div>
   );
