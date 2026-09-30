@@ -86,6 +86,8 @@ export interface ModelConfig {
   model?: string;
   base_url?: string;
   api_key_env?: string;
+  /** key pasted directly; wins over api_key_env, never persisted in run snapshots */
+  api_key?: string;
   temperature?: number;
   max_tokens?: number;
   timeout_s?: number;

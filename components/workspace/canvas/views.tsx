@@ -12,7 +12,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, datasetExportUrl, workspaceFileUrl } from "@/lib/api";
 import { extractFileMentions, isImagePath } from "@/lib/format";
 import { stepLabel } from "@/lib/toolMeta";
-import { autoEncode, buildSpec, chartName, configFromToolInput, type ChartConfig } from "@/lib/vega";
+import { autoEncode, buildSpec, chartName, configFromSpec, configFromToolInput, type ChartConfig } from "@/lib/vega";
 import type { ChartArtifact, ReportArtifact, Turn } from "@/lib/workspace";
 import { Markdown } from "@/components/markdown";
 import { StepTimeline } from "@/components/step-timeline";
@@ -20,7 +20,7 @@ import { CopyAction, DocumentColumn, type DocumentAction } from "@/components/do
 import { useWorkspaceUi } from "../context";
 import { DataGrid } from "../data-grid";
 import { ChartGalleryPopover } from "./chart-editor";
-import { VegaChart } from "./vega-chart";
+import { AgentVegaChart, VegaChart, useAgentSpec } from "./vega-chart";
 import {
   BarChartIcon,
   Button,
@@ -193,16 +193,21 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
   const [armed, setArmed] = useState(false);
   const [broken, setBroken] = useState(false);
   const editAnchor = useRef<HTMLButtonElement | null>(null);
-  const png = chart.kind === "png";
+  // agent: the tool wrote a Vega-Lite twin next to the PNG — render it live, keep the PNG as a fallback
+  const agent = chart.kind === "agent" && !!chart.specPath;
+  const png = chart.kind === "png" || (chart.kind === "agent" && !chart.specPath);
+  const agentSpec = useAgentSpec(agent ? chart.specPath : undefined);
+  const [showImage, setShowImage] = useState(false);
   const title = chart.title ?? chart.path?.split("/").pop() ?? "chart";
   const step = chart.step || undefined;
   const info = chart.dataset ? ui.datasetInfo(chart.dataset) : undefined;
 
   const editChart = () => {
     if (!chart.dataset || !info) return;
-    if (png) {
-      // a png is not editable in place: a NEW vega chart next to it
-      const cfg = configFromToolInput(chart.tool, chart.input, info.columns);
+    if (png || agent) {
+      // an agent chart is not editable in place: a NEW vega chart next to it,
+      // prefilled from the spec's own columns when they are known
+      const cfg = (agent ? configFromSpec(agentSpec.data, info.columns) : null) ?? configFromToolInput(chart.tool, chart.input, info.columns);
       const spec = buildSpec(cfg, info.columns);
       ui.addVegaChart(turn.id, { dataset: chart.dataset, spec, config: cfg as unknown as Record<string, unknown>, title: `${chartTitle(cfg)} of ${chart.dataset}` }, `Edit chart: ${title}`);
       return;
@@ -241,7 +246,13 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
             </PillButton>
           </>
         )}
-        {png && chart.path && (
+        {agent && (
+          <PillButton size="sm" onClick={() => setShowImage((v) => !v)} title={showImage ? "Show the live chart" : "Show the PNG the agent saved"}>
+            <BarChartIcon size={12} />
+            {showImage ? "live" : "image"}
+          </PillButton>
+        )}
+        {(png || agent) && chart.path && (
           <a href={workspaceFileUrl(chart.path)} target="_blank" rel="noreferrer" className="inline-flex h-6 items-center gap-1.5 rounded-canvas border border-edge bg-panel px-2 text-12 text-fg shadow-hair hover:border-accent hover:text-accent">
             <ExternalIcon size={12} />
             open
@@ -255,7 +266,7 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
 
       {/* the chart, vertically centred, fades in on change */}
       <div key={chart.id} className="flex items-center justify-center overflow-auto px-3 animate-fade-in" style={{ minHeight: "min(75vh, 800px)" }}>
-        {png && chart.path ? (
+        {(png || (agent && showImage)) && chart.path ? (
           broken ? (
             <EmptyNote icon={<BarChartIcon size={24} />} title="The chart image is no longer in the workspace" hint={chart.path} />
           ) : (
@@ -269,6 +280,10 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
               style={{ transform: `scale(${zoom})`, transformOrigin: "center", maxHeight: "min(72vh, 760px)" }}
             />
           )
+        ) : agent ? (
+          <div className="w-full" style={{ height: "min(70vh, 720px)", transform: `scale(${zoom})`, transformOrigin: "center" }}>
+            <AgentVegaChart chart={chart} title={title} />
+          </div>
         ) : (
           <div className="w-full" style={{ height: "min(70vh, 720px)", transform: `scale(${zoom})`, transformOrigin: "center" }}>
             {chart.spec ? <VegaChart spec={chart.spec} dataset={chart.dataset} /> : <EmptyNote title="No chart specification" />}

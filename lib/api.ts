@@ -138,7 +138,13 @@ export interface SessionSummary {
 /** Structured artifacts on a `tool_result` step (API.md, "Datasets and lineage"). */
 export interface StepArtifacts {
   datasets: { name: string; rows: number; cols: number; parents: string[]; tool: string }[];
-  files: { path: string; kind: "chart" | "report" | "table" | "model" | "other"; dataset?: string | null }[];
+  files: {
+    path: string;
+    kind: "chart" | "spec" | "report" | "table" | "model" | "other";
+    dataset?: string | null;
+    /** a `chart` entry's Vega-Lite twin (`plots/<stem>.vl.json`), when the tool wrote one */
+    spec?: string | null;
+  }[];
 }
 
 export interface SessionStep {
@@ -428,6 +434,10 @@ export const api = {
   /** Text of a workspace file (markdown reports, CSV previews, logs). */
   getWorkspaceText: (path: string) =>
     apiFetchText(`/api/workspace/file?path=${encodeURIComponent(path)}`),
+
+  /** A JSON workspace file — an agent chart's Vega-Lite spec (`plots/*.vl.json`). */
+  getWorkspaceJson: <T = Record<string, unknown>>(path: string) =>
+    apiFetch<T>(`/api/workspace/file?path=${encodeURIComponent(path)}`),
 
   // playbook
 

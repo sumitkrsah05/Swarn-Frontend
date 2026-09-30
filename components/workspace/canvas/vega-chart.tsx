@@ -1,17 +1,22 @@
 "use client";
 
 /**
- * Vega-Lite rendering for Quick / Edit charts (docs/guide.md §7.7):
- *  - VegaChart: the canvas view (canvas renderer, tooltips on, actions off)
+ * Vega-Lite rendering (docs/guide.md §7.7):
+ *  - VegaChart: Quick / Edit charts — the spec's data is REPLACED by up to
+ *    5,000 rows from /api/data/datasets/{name}/rows (shared React Query)
+ *  - AgentVegaChart: an agent chart's own spec (`plots/<stem>.vl.json`,
+ *    written by the backend next to the PNG) — fetched from
+ *    /api/workspace/file and rendered AS IS: its data is inline, so nothing
+ *    is fetched from /rows and the chart shown is the chart the agent made.
+ *    The PNG is the fallback when the spec cannot be loaded or rendered.
  *  - VegaThumb: a 120×100 thumbnail rendered once off-screen to a PNG data
- *    URL and cached per chart id
- * Data (≤ 5,000 rows) comes from /api/data/datasets/{name}/rows through a
- * shared React Query, so the thumbnail and the canvas fetch it once.
+ *    URL and cached per chart id (Quick / Edit charts only; agent charts
+ *    already have a PNG)
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { api, isDatasetGone, type RowsResponse } from "@/lib/api";
+import { api, isDatasetGone, workspaceFileUrl, type RowsResponse } from "@/lib/api";
 import { rowsToObjects } from "@/lib/vega";
 import type { ChartArtifact } from "@/lib/workspace";
 import { BarChartIcon, Loading } from "@/components/ui";
@@ -39,14 +44,45 @@ export function useDatasetSample(name: string | null | undefined) {
   });
 }
 
+/** What the backend stamps on every agent spec (`usermeta.swarn`, API.md "Step artifacts"). */
+export interface AgentSpecMeta {
+  dataset?: string;
+  tool?: string;
+  png?: string;
+  rows_total?: number;
+  rows_in_spec?: number;
+  sampled?: boolean;
+  columns?: string[];
+}
+
+export function agentSpecMeta(spec: Record<string, unknown> | undefined | null): AgentSpecMeta | undefined {
+  const u = spec?.usermeta as { swarn?: AgentSpecMeta } | undefined;
+  return u?.swarn && typeof u.swarn === "object" ? u.swarn : undefined;
+}
+
+/** The agent chart's spec file. It never changes once written, so it is cached for the session. */
+export function useAgentSpec(specPath: string | null | undefined) {
+  return useQuery<Record<string, unknown>>({
+    queryKey: ["workspace", "spec", specPath],
+    queryFn: () => api.getWorkspaceJson(specPath as string),
+    enabled: !!specPath,
+    staleTime: Infinity,
+    retry: 1,
+  });
+}
+
 type EmbedResult = { view: { toImageURL: (t: "png" | "svg", scale?: number) => Promise<string>; finalize: () => void }; finalize: () => void };
 
-async function embedSpec(el: HTMLElement, spec: Record<string, unknown>, values: Record<string, unknown>[], theme: "light" | "dark"): Promise<EmbedResult> {
+/**
+ * Embed a spec. `values` REPLACES the spec's data (Quick / Edit charts);
+ * `null` keeps whatever data the spec carries (agent charts, inline).
+ */
+async function embedSpec(el: HTMLElement, spec: Record<string, unknown>, values: Record<string, unknown>[] | null, theme: "light" | "dark"): Promise<EmbedResult> {
   const mod = await import("vega-embed");
   const embed = mod.default;
   const full = {
     ...spec,
-    data: { values },
+    ...(values ? { data: { values } } : {}),
     config: {
       ...(spec.config as Record<string, unknown> | undefined),
       axis: { ...((spec.config as { axis?: Record<string, unknown> } | undefined)?.axis ?? {}), labelColor: theme === "dark" ? "#a0a0a8" : "#5c5c63", titleColor: theme === "dark" ? "#e6e6e9" : "#272727" },
@@ -62,17 +98,23 @@ function currentTheme(): "light" | "dark" {
   return typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
+/** Re-render when the theme flips (the embed bakes colours in). */
+function useThemeTick(): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const obs = new MutationObserver(() => setTick((n) => n + 1));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => obs.disconnect();
+  }, []);
+  return tick;
+}
+
 export function VegaChart({ spec, dataset, className = "" }: { spec: Record<string, unknown>; dataset: string | undefined; className?: string }) {
   const sample = useDatasetSample(dataset);
   const ref = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const values = useMemo(() => (sample.data ? rowsToObjects(sample.data.columns, sample.data.rows) : null), [sample.data]);
-  const [themeTick, setThemeTick] = useState(0);
-  useEffect(() => {
-    const obs = new MutationObserver(() => setThemeTick((n) => n + 1));
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-    return () => obs.disconnect();
-  }, []);
+  const themeTick = useThemeTick();
 
   useEffect(() => {
     const el = ref.current;
@@ -107,6 +149,67 @@ export function VegaChart({ spec, dataset, className = "" }: { spec: Record<stri
       {sample.data && sample.data.total > sample.data.rows.length && (
         <div className="absolute top-1 right-2 font-mono text-10 text-faint">
           visualising {sample.data.rows.length.toLocaleString()} / {sample.data.total.toLocaleString()} rows
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The agent's own chart, live. The spec carries its data, so the only
+ * network call is the spec file itself. Charts the backend sized to their
+ * content (bar lists, heatmaps) keep their height; the default-height ones
+ * (300px: histograms, scatter, lines, box plots) stretch to the canvas.
+ */
+export function AgentVegaChart({ chart, title, className = "" }: { chart: ChartArtifact; title?: string; className?: string }) {
+  const spec = useAgentSpec(chart.specPath);
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const themeTick = useThemeTick();
+  const meta = agentSpecMeta(spec.data);
+
+  useEffect(() => {
+    const el = ref.current;
+    const s = spec.data;
+    if (!el || !s) return;
+    let result: EmbedResult | null = null;
+    let cancelled = false;
+    setError(null);
+    const sized = { ...s, width: "container", height: typeof s.height === "number" && s.height !== 300 ? s.height : "container" };
+    embedSpec(el, sized, null, currentTheme())
+      .then((r) => {
+        if (cancelled) r.finalize();
+        else result = r;
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    return () => {
+      cancelled = true;
+      result?.finalize();
+    };
+  }, [spec.data, themeTick]);
+
+  // the PNG is the fallback for a spec that cannot be fetched or rendered
+  if ((spec.isError || error) && chart.path) {
+    return (
+      <div className={`relative flex h-full w-full items-center justify-center ${className}`}>
+        {/* agent-produced media: a plain <img> */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={workspaceFileUrl(chart.path)} alt={title ?? "chart"} className="max-h-full max-w-full rounded-panel border border-edge bg-white" />
+        <div className="absolute inset-x-0 bottom-0 p-2 text-center text-11 text-muted" title={error ?? (spec.error as Error | undefined)?.message}>
+          Showing the saved image — the live chart could not be {spec.isError ? "loaded" : "rendered"}.
+        </div>
+      </div>
+    );
+  }
+  if (spec.isError) return <div className="p-4 text-12 text-muted">{(spec.error as Error).message}</div>;
+  if (!spec.data) return <Loading label="Loading chart…" />;
+  return (
+    <div className={`relative h-full w-full ${className}`}>
+      <div ref={ref} className="h-full w-full" />
+      {error && <div className="absolute inset-x-0 bottom-0 p-2 text-11 text-err">{error}</div>}
+      {meta?.sampled && meta.rows_in_spec != null && meta.rows_total != null && (
+        <div className="absolute top-1 right-2 font-mono text-10 text-faint" title="The tool sampled the rows it drew; its numbers use every row.">
+          showing {meta.rows_in_spec.toLocaleString()} / {meta.rows_total.toLocaleString()} rows
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import trace from "../test/fixtures/trace-ab2bb1db.json";
 import type { SessionStep } from "./api";
-import { artifactsFromStep, artifactsFromSteps, fileKind, mergeArtifacts, normalizePath, parentsFromInput, parseResultText } from "./artifacts";
+import { artifactsFromStep, artifactsFromSteps, fileKind, mergeArtifacts, normalizePath, parentsFromInput, parseResultText, specPathFor } from "./artifacts";
 
 const steps = (trace as { steps: SessionStep[] }).steps;
 
@@ -98,5 +98,64 @@ describe("helpers", () => {
     const m = mergeArtifacts(base, add);
     expect(m.datasets).toHaveLength(1);
     expect(m.datasets[0].rows).toBe(10);
+  });
+});
+
+describe("agent charts with a Vega-Lite twin", () => {
+  const line = "Histogram of 'qty' saved to plots/sales__qty_distribution.png (Vega-Lite spec: plots/sales__qty_distribution.vl.json)\n  120 values, 0 blank.";
+
+  it("classifies the spec file", () => {
+    expect(fileKind("plots/sales__qty_distribution.vl.json")).toBe("spec");
+    expect(specPathFor("plots/sales__qty_distribution.png")).toBe("plots/sales__qty_distribution.vl.json");
+  });
+
+  it("reads the spec path out of the result text", () => {
+    expect(parseResultText(line).files).toEqual(["plots/sales__qty_distribution.png", "plots/sales__qty_distribution.vl.json"]);
+  });
+
+  it("structured: a chart entry with `spec` becomes one agent chart, not a png plus a file", () => {
+    const step: SessionStep = {
+      kind: "tool_result",
+      time: 1,
+      data: {
+        step: 4,
+        tool: "plot_column",
+        input: { name: "sales", column: "qty" },
+        result: line,
+        artifacts: {
+          datasets: [],
+          files: [{ path: "plots/sales__qty_distribution.png", kind: "chart", dataset: "sales", spec: "plots/sales__qty_distribution.vl.json" }],
+        },
+      },
+    };
+    const a = artifactsFromStep(step, new Set(["sales"]));
+    expect(a.charts).toEqual([
+      { id: "plots/sales__qty_distribution.png", kind: "agent", path: "plots/sales__qty_distribution.png", specPath: "plots/sales__qty_distribution.vl.json", dataset: "sales", tool: "plot_column", step: 4, input: { name: "sales", column: "qty" } },
+    ]);
+    expect(a.files).toEqual([]);
+  });
+
+  it("structured: a chart entry without `spec` stays a png chart (older backend)", () => {
+    const step: SessionStep = {
+      kind: "tool_result",
+      time: 1,
+      data: { step: 4, tool: "plot_column", result: "x", artifacts: { datasets: [], files: [{ path: "plots/a.png", kind: "chart", dataset: "sales" }] } },
+    };
+    expect(artifactsFromStep(step, new Set()).charts[0]).toMatchObject({ kind: "png", path: "plots/a.png" });
+  });
+
+  it("fallback: the spec named in the text rides on its chart", () => {
+    const step: SessionStep = { kind: "tool_result", time: 1, data: { step: 4, tool: "plot_column", input: { name: "sales", column: "qty" }, result: line } };
+    const a = artifactsFromStep(step, new Set(["sales"]));
+    expect(a.charts).toHaveLength(1);
+    expect(a.charts[0]).toMatchObject({ kind: "agent", path: "plots/sales__qty_distribution.png", specPath: "plots/sales__qty_distribution.vl.json", dataset: "sales" });
+    expect(a.files).toEqual([]);
+  });
+
+  it("fallback: a spec without its png in the same result is kept as a file", () => {
+    const step: SessionStep = { kind: "tool_result", time: 1, data: { step: 4, tool: "x", result: "Spec written (Vega-Lite spec: plots/lone.vl.json)" } };
+    const a = artifactsFromStep(step, new Set());
+    expect(a.charts).toEqual([]);
+    expect(a.files).toEqual([{ path: "plots/lone.vl.json", kind: "spec", step: 4, tool: "x" }]);
   });
 });

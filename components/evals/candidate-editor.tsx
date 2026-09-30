@@ -18,6 +18,7 @@ import {
 
 const PROVIDERS: Provider[] = ["deployed", "openai-compatible", "anthropic", "hf-local", "mock"];
 const MOCK_BEHAVIORS: MockBehavior[] = ["reference", "echo", "fixed", "fail"];
+type KeySource = "paste" | "env";
 
 function emptyModel(): ModelConfig {
   return {
@@ -26,6 +27,7 @@ function emptyModel(): ModelConfig {
     model: "",
     base_url: "",
     api_key_env: "",
+    api_key: "",
     temperature: 0,
     max_tokens: 512,
     timeout_s: 120,
@@ -46,7 +48,8 @@ function compact(m: ModelConfig): ModelConfig {
   if (m.provider !== "deployed") {
     if (m.model?.trim()) out.model = m.model.trim();
     if (m.base_url?.trim()) out.base_url = m.base_url.trim();
-    if (m.api_key_env?.trim()) out.api_key_env = m.api_key_env.trim();
+    if (m.api_key?.trim()) out.api_key = m.api_key.trim();
+    else if (m.api_key_env?.trim()) out.api_key_env = m.api_key_env.trim();
   }
   if (m.temperature != null && !Number.isNaN(m.temperature)) out.temperature = m.temperature;
   if (m.max_tokens) out.max_tokens = m.max_tokens;
@@ -77,6 +80,7 @@ export function CandidateEditor({
 }) {
   const endpoints = useEndpoints();
   const [editing, setEditing] = useState<{ index: number | null; draft: ModelConfig } | null>(null);
+  const [keySource, setKeySource] = useState<KeySource>("paste");
   const [extraText, setExtraText] = useState("");
   const [extraError, setExtraError] = useState<string | null>(null);
 
@@ -88,11 +92,13 @@ export function CandidateEditor({
 
   const startAdd = () => {
     setEditing({ index: null, draft: emptyModel() });
+    setKeySource("paste");
     setExtraText("");
     setExtraError(null);
   };
   const startEdit = (i: number) => {
     setEditing({ index: i, draft: { ...emptyModel(), ...candidates[i] } });
+    setKeySource(candidates[i].api_key_env && !candidates[i].api_key ? "env" : "paste");
     setExtraText(candidates[i].extra ? JSON.stringify(candidates[i].extra, null, 2) : "");
     setExtraError(null);
   };
@@ -123,6 +129,11 @@ export function CandidateEditor({
 
   const set = (patch: Partial<ModelConfig>) =>
     setEditing((e) => (e ? { ...e, draft: { ...e.draft, ...patch } } : e));
+  const switchKeySource = (src: KeySource) => {
+    setKeySource(src);
+    // only one of the two reaches the server, so drop the other when switching
+    set(src === "paste" ? { api_key_env: "" } : { api_key: "" });
+  };
 
   return (
     <div className="space-y-3">
@@ -208,14 +219,45 @@ export function CandidateEditor({
                 <Field label="Base URL">
                   <Input value={editing.draft.base_url ?? ""} onChange={(e) => set({ base_url: e.target.value })} placeholder="https://host/v1" className="font-mono text-xs" />
                 </Field>
-                <Field label="API key env" hint="environment-variable name on the server; keys are never typed here">
-                  <Select value={editing.draft.api_key_env ?? ""} onChange={(e) => set({ api_key_env: e.target.value })}>
-                    <option value="">(none)</option>
-                    {(endpoints.data?.api_key_envs ?? []).map((k) => <option key={k} value={k}>{k}</option>)}
-                    {editing.draft.api_key_env && !(endpoints.data?.api_key_envs ?? []).includes(editing.draft.api_key_env) && (
-                      <option value={editing.draft.api_key_env}>{editing.draft.api_key_env}</option>
-                    )}
-                  </Select>
+                <Field
+                  label="API key"
+                  className="md:col-span-2"
+                  hint={
+                    keySource === "paste"
+                      ? "sent to the server with the run config; kept out of run snapshots and reports. Leave empty to use the provider's default env var."
+                      : "name of an environment variable set on the server; the value never leaves it"
+                  }
+                >
+                  <div className="flex flex-col gap-1.5 sm:flex-row">
+                    {/* wrappers size the controls: the primitives are w-full */}
+                    <div className="shrink-0 sm:w-36">
+                      <Select aria-label="API key source" value={keySource} onChange={(e) => switchKeySource(e.target.value as KeySource)}>
+                        <option value="paste">paste key</option>
+                        <option value="env">server env var</option>
+                      </Select>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {keySource === "paste" ? (
+                        <Input
+                          type="password"
+                          autoComplete="off"
+                          spellCheck={false}
+                          value={editing.draft.api_key ?? ""}
+                          onChange={(e) => set({ api_key: e.target.value })}
+                          placeholder="sk-…"
+                          className="font-mono text-xs"
+                        />
+                      ) : (
+                        <Select value={editing.draft.api_key_env ?? ""} onChange={(e) => set({ api_key_env: e.target.value })}>
+                          <option value="">(provider default)</option>
+                          {(endpoints.data?.api_key_envs ?? []).map((k) => <option key={k} value={k}>{k}</option>)}
+                          {editing.draft.api_key_env && !(endpoints.data?.api_key_envs ?? []).includes(editing.draft.api_key_env) && (
+                            <option value={editing.draft.api_key_env}>{editing.draft.api_key_env}</option>
+                          )}
+                        </Select>
+                      )}
+                    </div>
+                  </div>
                 </Field>
               </>
             )}

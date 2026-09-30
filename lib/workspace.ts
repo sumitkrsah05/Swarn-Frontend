@@ -35,11 +35,19 @@ export interface DatasetArtifact {
 }
 
 export interface ChartArtifact {
-  /** stable per-chart id (path for png charts, a uuid for vega charts) */
+  /** stable per-chart id (path for png/agent charts, a uuid for vega charts) */
   id: string;
-  kind: "png" | "vega";
-  /** workspace-relative path for png charts */
+  /**
+   * png:   an agent chart with only its image
+   * agent: an agent chart whose tool also wrote a Vega-Lite twin (`specPath`);
+   *        rendered live from that file, the PNG kept as the fallback
+   * vega:  a Quick chart / Edit chart built client-side (`spec` + `config`)
+   */
+  kind: "png" | "agent" | "vega";
+  /** workspace-relative path of the PNG (png and agent charts) */
   path?: string;
+  /** agent charts: workspace-relative path of the Vega-Lite spec, fetched at render time */
+  specPath?: string;
   dataset?: string;
   tool: string;
   step: number;
@@ -62,7 +70,7 @@ export interface ReportArtifact {
 
 export interface FileArtifact {
   path: string;
-  kind: "chart" | "report" | "table" | "model" | "other";
+  kind: "chart" | "spec" | "report" | "table" | "model" | "other";
   step: number;
   tool: string;
 }
@@ -468,7 +476,8 @@ function sanitizeArtifacts(raw: unknown): TurnArtifacts {
       .filter((c) => c && typeof c === "object")
       .map((c) => {
         const o = c as ChartArtifact;
-        return { ...o, id: o.id || o.path || uid(), kind: o.kind === "vega" ? "vega" : "png" };
+        const kind: ChartArtifact["kind"] = o.kind === "vega" ? "vega" : o.kind === "agent" && typeof o.specPath === "string" ? "agent" : "png";
+        return { ...o, id: o.id || o.path || uid(), kind };
       }),
     reports: arr(a.reports).filter((r) => r && typeof r === "object") as ReportArtifact[],
     files: arr(a.files).filter((f) => f && typeof f === "object") as FileArtifact[],

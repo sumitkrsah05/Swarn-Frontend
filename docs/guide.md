@@ -799,6 +799,7 @@ out and took its default: show that as an info toast.
 |---|---|
 | dataset | The grid card (2.6), using `/api/data/datasets/{name}/rows` with paging, sort, search and filters, and `/columns/{c}` for the column popover. Derived columns come from `derived_columns`. Dock: **Quick chart** · **Download CSV** (`/export`) · N rows. A 404 shows the "not in memory" empty state with a **Re-run this turn** button. |
 | chart (png) | The zoomable image and the status line. Pills: **log** (the turn's `StepTimeline`, scrolled to the step), **code** (the tool name plus the pretty-printed `input`; for `run_python`, the syntax-highlighted code), **open** (a new tab), and **Edit chart**. Below: the grid of `chart.dataset`, if known. |
+| chart (agent) | The agent's own chart rendered live. Every chart tool writes a self-contained Vega-Lite twin next to its PNG (`plots/<stem>.vl.json`, backend `agent/data/charts.py`); the step artifact's chart entry carries it as `spec`, the result text as `(Vega-Lite spec: …)`. Fetched through `/api/workspace/file`, rendered with `vega-embed` keeping the spec's inline data (no `/rows` fetch). `usermeta.swarn.sampled` puts "showing N of M rows" in the corner. Pills as for png plus **image** / **live** to flip to the PNG; the PNG is also the fallback when the spec cannot be loaded or rendered. |
 | chart (vega) | A `vega-embed` view (canvas renderer, tooltips on, actions off) and the same pills. **Edit chart** opens the encoding popover. |
 | report | An 816px document column. Prefer the report **HTML** in a sandboxed `<iframe sandbox="allow-same-origin">` sized to its content; otherwise render the MD through the existing `Markdown` component. Pills: open, download md/html, copy. |
 | answer | The full markdown, file-mention chips (images inline, as in today's `chat-message.tsx`), and "view trace" → `/sessions/{id}`. |
@@ -840,9 +841,14 @@ This is the swarn equivalent of DF's encoding shelf.
 **The data.** Fetch up to 5,000 rows from `/rows`. When `total` is larger,
 the status line reads "visualising 5,000 / N rows".
 
-**PNG agent charts are not editable in place.** **Edit chart** on a PNG
-chart opens the popover prefilled from the tool input (`x`, `y`, `column`)
-and creates a *new* vega chart next to it.
+**Agent charts are not editable in place.** **Edit chart** on a PNG or
+agent chart creates a *new* vega chart next to it. For an agent chart the
+prefill comes from the spec's `usermeta.swarn` (`tool` + `columns`,
+`configFromSpec`), which survives even when the turn's tool input was not
+kept; otherwise from the tool input (`x`, `y`, `column`,
+`configFromToolInput`). Aggregated agent charts the editor cannot express
+(missingness, subgroup rules, correlation grids, list splits) fall back to
+the tool-input guess.
 
 ### 7.8 Deleting
 

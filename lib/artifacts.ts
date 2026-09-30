@@ -23,6 +23,8 @@ const RE_SHAPE = /\((\d[\d,]*) rows × (\d[\d,]*) (?:cols|columns)\)/;
 const RE_SHAPE_LOOSE = /(\d[\d,]*) rows × (\d[\d,]*) (?:cols|columns)/;
 const RE_FILE = /(?:saved|written)(?:\s+'[^']*'(?:\s+\([^)]*\))?)?\s+to\s+(\S+\.(?:png|svg|jpg|jpeg|html|md|csv|parquet))\b/gi;
 const RE_REPORT = /\b([\w./-]+_report\.(?:md|html))\b/g;
+/** "… saved to plots/x.png (Vega-Lite spec: plots/x.vl.json)" — the chart's live twin */
+const RE_SPEC = /Vega-Lite spec:\s*(\S+\.vl\.json)/gi;
 
 const PARENT_KEYS = ["name", "names", "left", "right", "dataset", "sources", "datasets"];
 
@@ -31,6 +33,7 @@ export type FileKind = FileArtifact["kind"];
 export function fileKind(path: string): FileKind {
   const p = path.toLowerCase();
   if (/_report\.(html|md)$/.test(p)) return "report";
+  if (/\.vl\.json$/.test(p)) return "spec";
   if (/\.(png|svg|jpe?g)$/.test(p)) return "chart";
   if (/\.(csv|parquet)$/.test(p)) return "table";
   if (/\.(pkl|joblib|onnx|pt|pth)$/.test(p)) return "model";
@@ -76,7 +79,7 @@ export function parseResultText(text: string): ParsedResult {
   }
   const files: string[] = [];
   const fseen = new Set<string>();
-  for (const re of [RE_FILE, RE_REPORT]) {
+  for (const re of [RE_FILE, RE_REPORT, RE_SPEC]) {
     re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text))) {
@@ -120,6 +123,11 @@ function reportStem(path: string): string {
   return path.replace(/\.(md|html)$/, "");
 }
 
+/** `plots/x.png` → `plots/x.vl.json`: where a chart tool writes the chart's Vega-Lite twin. */
+export function specPathFor(chartPath: string): string {
+  return chartPath.replace(/\.(png|svg|jpe?g)$/i, "") + ".vl.json";
+}
+
 /**
  * Artifacts produced by ONE tool_result step. `known` is the set of dataset
  * names registered so far (this turn's and the server's), used to resolve
@@ -135,9 +143,10 @@ export function artifactsFromStep(step: SessionStep, known: Set<string>): TurnAr
     | undefined;
   const structured = step.data.artifacts as StepArtifacts | undefined;
 
-  const pushFile = (path: string, kind: FileKind, dataset: string | undefined) => {
+  const pushFile = (path: string, kind: FileKind, dataset: string | undefined, spec?: string) => {
     if (kind === "chart") {
-      out.charts.push({ id: path, kind: "png", path, dataset, tool, step: stepNo, input });
+      if (spec) out.charts.push({ id: path, kind: "agent", path, specPath: spec, dataset, tool, step: stepNo, input });
+      else out.charts.push({ id: path, kind: "png", path, dataset, tool, step: stepNo, input });
     } else if (kind === "report") {
       const stem = reportStem(path);
       let rep = out.reports.find((r) => reportStem(r.htmlPath ?? r.mdPath ?? "") === stem);
@@ -166,7 +175,7 @@ export function artifactsFromStep(step: SessionStep, known: Set<string>): TurnAr
     }
     for (const f of structured.files ?? []) {
       const path = normalizePath(f.path);
-      pushFile(path, (f.kind as FileKind) ?? fileKind(path), f.dataset ?? undefined);
+      pushFile(path, (f.kind as FileKind) ?? fileKind(path), f.dataset ?? undefined, f.spec ? normalizePath(f.spec) : undefined);
     }
     return out;
   }
@@ -211,7 +220,15 @@ export function artifactsFromStep(step: SessionStep, known: Set<string>): TurnAr
     }
   }
   const chartDataset = inputName(input) && known.has(inputName(input) as string) ? inputName(input) : inputName(input);
-  for (const path of parsed.files) pushFile(path, fileKind(path), chartDataset);
+  // a spec named in the same result rides on its chart, exactly as the structured key does
+  const specs = new Set(parsed.files.filter((p) => fileKind(p) === "spec"));
+  const charts = new Set(parsed.files.filter((p) => fileKind(p) === "chart"));
+  for (const path of parsed.files) {
+    const kind = fileKind(path);
+    if (kind === "spec" && [...charts].some((c) => specPathFor(c) === path)) continue;
+    const twin = kind === "chart" && specs.has(specPathFor(path)) ? specPathFor(path) : undefined;
+    pushFile(path, kind, chartDataset, twin);
+  }
   return out;
 }
 

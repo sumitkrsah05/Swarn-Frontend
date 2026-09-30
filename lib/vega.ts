@@ -170,6 +170,30 @@ export function configFromToolInput(tool: string, input: Record<string, unknown>
   return autoEncode("bar", columns);
 }
 
+/**
+ * "Edit chart" on an AGENT chart: the spec's `usermeta.swarn` names the tool
+ * and the columns it charted, which is more reliable than the tool input
+ * (older turns may not have kept it). Only the shapes the editor can express
+ * are mapped; anything else (missingness bars, subgroup rules, correlation
+ * grids, list splits) returns null and the caller falls back or disables.
+ */
+export function configFromSpec(spec: Record<string, unknown> | undefined | null, columns: DatasetColumn[]): ChartConfig | null {
+  const meta = (spec?.usermeta as { swarn?: { tool?: string; columns?: unknown } } | undefined)?.swarn;
+  if (!meta?.tool) return null;
+  const cols = Array.isArray(meta.columns) ? meta.columns.filter((c): c is string => typeof c === "string") : [];
+  const known = (n: string | undefined) => !!n && columns.some((c) => c.name === n);
+  switch (meta.tool) {
+    case "plot_column":
+      return known(cols[0]) ? configFromToolInput("plot_column", { column: cols[0] }, columns) : null;
+    case "plot_relationship":
+      return known(cols[0]) && known(cols[1]) ? configFromToolInput("plot_relationship", { x: cols[0], y: cols[1] }, columns) : null;
+    case "analyze_over_time":
+      return known(cols[0]) ? configFromToolInput("analyze_over_time", { date_col: cols[0], value_col: known(cols[1]) ? cols[1] : undefined }, columns) : null;
+    default:
+      return null;
+  }
+}
+
 type VlEncoding = Record<string, unknown>;
 
 function encodeChannel(ch: Channel, e: Encoding | undefined, columns: DatasetColumn[], type: VegaChartType): VlEncoding | null {

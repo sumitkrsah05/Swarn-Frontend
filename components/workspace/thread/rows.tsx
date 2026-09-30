@@ -305,7 +305,7 @@ export function ChartThumb({ turn, chart, index, lineage }: { turn: Turn; chart:
         onClick={() => ui.focusRef(ref)}
       >
         <div className="flex h-[100px] w-[120px] items-center justify-center overflow-hidden rounded-card border border-edge bg-panel">
-          {chart.kind === "png" && chart.path ? (
+          {chart.kind !== "vega" && chart.path ? (
             broken ? (
               <span className="flex flex-col items-center gap-1 text-faint" title={`${chart.path} is no longer in the workspace`}>
                 {chartIcon(kind, 18)}
