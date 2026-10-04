@@ -13,9 +13,10 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { uploadFiles } from "@/lib/api";
 import { TAB_FILL } from "@/lib/starters";
-import type { AgentQuestion, ChatAttachment } from "@/lib/workspace";
+import type { AgentQuestion, ChatAttachment, TurnUsage } from "@/lib/workspace";
 import { useToast } from "@/components/toast";
 import { formatElapsed } from "./thread/thinking";
+import { TokenCounter } from "./thread/usage";
 import {
   ArrowUpIcon,
   BoltIcon,
@@ -46,6 +47,8 @@ export interface ComposerProps {
   running?: boolean;
   runningLabel?: string;
   runningSince?: number | null;
+  /** token spend of the running turn, for the working overlay */
+  runningUsage?: TurnUsage;
   onStop?: () => void;
   /** the focused dataset — a fixed @chip */
   focusedDataset?: string | null;
@@ -89,6 +92,7 @@ export function Composer({
   running = false,
   runningLabel,
   runningSince,
+  runningUsage,
   onStop,
   focusedDataset,
   datasetNames = [],
@@ -523,6 +527,7 @@ export function Composer({
                 <div className="truncate font-mono text-11 text-muted">
                   {runningLabel ?? "thinking…"}
                   {elapsed && <span className="ml-2 text-faint">{elapsed}</span>}
+                  <TokenCounter usage={runningUsage} className="ml-2 text-11" />
                 </div>
               </div>
               {onStop && (

@@ -113,6 +113,8 @@ export interface Turn {
   intent?: "report" | "suggest";
   /** a parked agent question (approval_request) awaiting the user */
   question?: AgentQuestion;
+  /** token spend of the job, updated live from `usage` events */
+  usage?: TurnUsage;
 }
 
 export interface AgentQuestion {
@@ -120,6 +122,37 @@ export interface AgentQuestion {
   question: string;
   options: string[];
   default?: string;
+}
+
+/** Tokens the turn's job has used — live while it runs, final afterwards. */
+export interface TurnUsage {
+  inputTokens: number;
+  /** completed calls only; add `inFlight` for the live figure */
+  outputTokens: number;
+  /** the reply still streaming (an estimate until the call ends) */
+  inFlight: number;
+  calls: number;
+  cost?: number;
+  currency?: string;
+}
+
+/** A JobUsage payload (job summary, `usage` event, final status event) → TurnUsage; null when empty. */
+export function usageFromJob(u: unknown): TurnUsage | null {
+  if (!u || typeof u !== "object") return null;
+  const o = u as Record<string, unknown>;
+  const n = (k: string) => (typeof o[k] === "number" && isFinite(o[k] as number) ? (o[k] as number) : 0);
+  if (!("input_tokens" in o) && !("output_tokens" in o)) return null;
+  const out: TurnUsage = {
+    inputTokens: n("input_tokens"),
+    outputTokens: n("output_tokens"),
+    inFlight: n("in_flight_output_tokens"),
+    calls: n("calls"),
+  };
+  if (typeof o.cost === "number") {
+    out.cost = o.cost;
+    if (typeof o.currency === "string") out.currency = o.currency;
+  }
+  return out;
 }
 
 export type ArtifactRef =
@@ -519,7 +552,20 @@ function sanitizeTurn(raw: unknown): Turn | null {
     manual: o.manual === true || undefined,
     intent: o.intent === "report" || o.intent === "suggest" ? o.intent : undefined,
     question: o.question && typeof o.question === "object" ? (o.question as AgentQuestion) : undefined,
+    usage: sanitizeUsage(o.usage),
   };
+}
+
+function sanitizeUsage(raw: unknown): TurnUsage | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const n = (k: string) => (typeof o[k] === "number" && isFinite(o[k] as number) ? (o[k] as number) : 0);
+  if (!n("inputTokens") && !n("outputTokens") && !n("calls")) return undefined;
+  // nothing is streaming once the page has been reloaded
+  const out: TurnUsage = { inputTokens: n("inputTokens"), outputTokens: n("outputTokens"), inFlight: 0, calls: n("calls") };
+  if (typeof o.cost === "number") out.cost = o.cost;
+  if (typeof o.currency === "string") out.currency = o.currency;
+  return out;
 }
 
 export function sanitizeWorkspaces(raw: unknown): Workspace[] {

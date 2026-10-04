@@ -11,6 +11,9 @@
  *    and turns a 404 into a failed turn with Retry
  *  - artifacts appear live as tool_result steps arrive; the first chart of a
  *    run is auto-focused, later ones get the unread dot
+ *  - token usage ticks on the turn from `usage` job frames (the server sends
+ *    one per completed call and at most two a second while a reply streams);
+ *    REST's `job.usage` reconciles it and the final status event seals it
  *
  * Mounted once at the root (RunnerProvider), so every workspace keeps
  * streaming whichever page is open.
@@ -33,6 +36,7 @@ import {
   turnById,
   updateTurn,
   upsertTurn,
+  usageFromJob,
   type AgentQuestion,
   type ArtifactRef,
   type ChatAttachment,
@@ -206,10 +210,15 @@ export function RunnerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const finalize = useCallback(
-    (jobId: string, status: JobStatus, result: JobDetail["result"], error: string | null) => {
+    (jobId: string, status: JobStatus, result: JobDetail["result"], error: string | null, usage?: JobDetail["usage"]) => {
       const target = jobToTurn.current.get(jobId);
       if (!target) return;
       const now = Date.now() / 1000;
+      // the final figure: nothing is in flight once the job has ended
+      const sealed = (t: Turn): Turn["usage"] => {
+        const u = usageFromJob(usage) ?? t.usage;
+        return u ? { ...u, inFlight: 0 } : undefined;
+      };
       if (status === "complete") {
         const sessionId = typeof result?.session_id === "string" ? result.session_id : null;
         const answer = result?.summary?.trim() || "(The run completed without a summary.)";
@@ -217,7 +226,7 @@ export function RunnerProvider({ children }: { children: ReactNode }) {
         const touched = !!userTouched.current.get(jobId);
         patchTurn(
           target,
-          (t) => ({ ...t, status, sessionId, answer, outcome, finishedAt: now, question: undefined, failure: undefined }),
+          (t) => ({ ...t, status, sessionId, answer, outcome, finishedAt: now, question: undefined, failure: undefined, usage: sealed(t) }),
           (ws) => (touched ? ws : setFocus(ws, { kind: "answer", turnId: target.turnId })),
         );
         if (sessionId) {
@@ -231,7 +240,7 @@ export function RunnerProvider({ children }: { children: ReactNode }) {
       } else {
         const failure =
           status === "cancelled" ? "The run was cancelled." : error || "The run failed without an error message.";
-        patchTurn(target, (t) => ({ ...t, status, failure, finishedAt: now, question: undefined }));
+        patchTurn(target, (t) => ({ ...t, status, failure, finishedAt: now, question: undefined, usage: sealed(t) }));
       }
       forget(jobId);
     },
@@ -254,13 +263,16 @@ export function RunnerProvider({ children }: { children: ReactNode }) {
       if (pending) question = questionFromEvent(pending) ?? question;
       else if (job.pending_approvals && job.pending_approvals.length === 0 && question === undefined) question = null;
       if (job.status === "queued" || job.status === "running") {
+        const usage = usageFromJob(job.usage);
         patchTurn(target, (t) => {
           const q = question === undefined ? t.question : (question ?? undefined);
-          if (t.status === job.status && t.question === q) return t;
-          return { ...t, status: job.status, question: q };
+          // REST is authoritative for completed calls; keep a newer in-flight tick
+          const u = usage && usage.calls >= (t.usage?.calls ?? 0) ? { ...usage, inFlight: usage.calls === t.usage?.calls ? Math.max(usage.inFlight, t.usage?.inFlight ?? 0) : usage.inFlight } : t.usage;
+          if (t.status === job.status && t.question === q && t.usage === u) return t;
+          return { ...t, status: job.status, question: q, usage: u };
         });
       } else {
-        finalize(jobId, job.status, job.result, job.error);
+        finalize(jobId, job.status, job.result, job.error, job.usage);
       }
     },
     [finalize, patchTurn],
@@ -318,6 +330,10 @@ export function RunnerProvider({ children }: { children: ReactNode }) {
             if (q) patchTurn(target, (t) => ({ ...t, question: q }));
           }
           if (ev?.type === "approval_answered") patchTurn(target, (t) => ({ ...t, question: undefined }));
+          if (ev?.type === "usage") {
+            const usage = usageFromJob(ev);
+            if (usage) patchTurn(target, (t) => ({ ...t, usage }));
+          }
           if (frame.status === "queued" || frame.status === "running") {
             patchTurn(target, (t) => (t.status === frame.status ? t : { ...t, status: frame.status }));
           } else {

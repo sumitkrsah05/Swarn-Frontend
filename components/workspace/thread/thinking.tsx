@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { SessionStep } from "@/lib/api";
 import { stepIcon, stepLabel, type StepIcon } from "@/lib/toolMeta";
 import type { Turn } from "@/lib/workspace";
+import { TokenCounter } from "./usage";
 import {
   AlertIcon,
   BarChartIcon,
@@ -144,7 +145,8 @@ export function ThinkingSteps({ turn, lineage }: { turn: Turn; lineage: boolean 
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-breathe motion-reduce:animate-none" />
             </span>
             <Shimmer className="trail-dots">{turn.status === "queued" ? "waiting for a worker" : "thinking"}</Shimmer>
-            <span className="ml-auto font-mono text-10 not-italic text-faint tabular-nums">{elapsed}</span>
+            <TokenCounter usage={turn.usage} className="ml-auto" />
+            <span className={`font-mono text-10 not-italic text-faint tabular-nums ${turn.usage ? "" : "ml-auto"}`}>{elapsed}</span>
           </div>
         )}
         {hidden > 0 && (
@@ -162,7 +164,13 @@ export function ThinkingSteps({ turn, lineage }: { turn: Turn; lineage: boolean 
               <span className="h-1.5 w-1.5 rounded-full bg-accent animate-breathe motion-reduce:animate-none" />
             </span>
             <Shimmer className="relative z-[1] trail-dots">thinking</Shimmer>
-            <span className="relative z-[1] ml-auto font-mono text-10 not-italic text-faint tabular-nums">{elapsed}</span>
+            <TokenCounter usage={turn.usage} className="relative z-[1] ml-auto" />
+            <span className={`relative z-[1] font-mono text-10 not-italic text-faint tabular-nums ${turn.usage ? "" : "ml-auto"}`}>{elapsed}</span>
+          </div>
+        )}
+        {active && turn.usage && (
+          <div className="flex items-center justify-end pt-0.5">
+            <TokenCounter usage={turn.usage} />
           </div>
         )}
         {done > 0 && (

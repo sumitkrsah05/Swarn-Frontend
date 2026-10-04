@@ -71,6 +71,7 @@ function Harness() {
       <div data-testid="charts">{turn?.artifacts.charts.map((c) => c.path).join(",") ?? ""}</div>
       <div data-testid="focus">{ws?.focus ? JSON.stringify(ws.focus) : "null"}</div>
       <div data-testid="session">{turn?.sessionId ?? ""}</div>
+      <div data-testid="usage">{turn?.usage ? `${turn.usage.inputTokens}/${turn.usage.outputTokens}+${turn.usage.inFlight}/${turn.usage.calls}` : ""}</div>
     </div>
   );
 }
@@ -198,6 +199,59 @@ describe("useWorkspaceRunner", () => {
     });
     expect(screen.getByTestId("status").textContent).toBe("cancelled");
     expect(apiMock.getJob.mock.calls.length).toBe(calls);
+  });
+
+  it("ticks token usage from live frames and seals it from the final job detail", async () => {
+    apiMock.createJob.mockResolvedValue(job({ status: "queued", n_events: 0, events: [] }));
+    let phase = 0;
+    apiMock.getJob.mockImplementation(async () =>
+      phase === 0
+        ? job({ status: "running", usage: { input_tokens: 100, output_tokens: 10, in_flight_output_tokens: 0, estimated: false, calls: 1, cost: null, currency: null, cache_read_tokens: 0, elapsed_s: 1 } })
+        : job({
+            status: "complete",
+            finished: 9,
+            result: { outcome: "complete", summary: "Done.", session_id: "sess-1" },
+            usage: { input_tokens: 400, output_tokens: 60, in_flight_output_tokens: 0, estimated: false, calls: 3, cost: null, currency: null, cache_read_tokens: 0, elapsed_s: 8 },
+          }),
+    );
+    mount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      screen.getByText("ask").click();
+      await vi.advanceTimersByTimeAsync(2600);
+    });
+    // REST brought the first completed call
+    expect(screen.getByTestId("usage").textContent).toBe("100/10+0/1");
+
+    // a streaming tick over the websocket: the in-flight estimate shows on top
+    await act(async () => {
+      live.handler?.({
+        channel: "job",
+        job_id: "job-1",
+        method: "react",
+        status: "running",
+        task: "t",
+        event: { ts: 4, type: "usage", input_tokens: 100, output_tokens: 10, in_flight_output_tokens: 25, estimated: true, calls: 1, cost: null, currency: null },
+      });
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByTestId("usage").textContent).toBe("100/10+25/1");
+
+    // the next REST poll (same call count) must not wipe the newer in-flight tick
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2600);
+    });
+    expect(screen.getByTestId("usage").textContent).toBe("100/10+25/1");
+
+    // completion seals the final figure with nothing in flight
+    phase = 1;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2600);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("complete");
+    expect(screen.getByTestId("usage").textContent).toBe("400/60+0/3");
   });
 
   it("marks the turn failed with a retry hint when the server forgot the job", async () => {

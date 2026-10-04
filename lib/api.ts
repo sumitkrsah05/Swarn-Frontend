@@ -41,14 +41,42 @@ export type StepKind =
   | "complete"
   | "error";
 
+/**
+ * Token spend of one job (API.md "Live token usage"): the `usage` events,
+ * `JobSummary.usage` and the final status event all carry this shape. The
+ * live output figure is `output_tokens + in_flight_output_tokens`; while a
+ * call is streaming `estimated` is true and the in-flight part is a
+ * client-side count that the next event replaces with the real number.
+ */
+export interface JobUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  calls: number;
+  in_flight_output_tokens: number;
+  estimated: boolean;
+  cost: number | null;
+  currency: string | null;
+  elapsed_s: number;
+}
+
 /** Event shapes from GET /api/jobs/{id} — all include `ts`. */
 export interface JobEvent {
   ts: number;
-  type: "status" | "session" | "node" | "cancel_requested" | string;
+  type: "status" | "session" | "node" | "usage" | "cancel_requested" | string;
   // type: "status"
   status?: JobStatus;
   result?: JobResult | null;
   error?: string | null;
+  /** final status event, and every type: "usage" event (JobUsage fields inline) */
+  usage?: JobUsage;
+  input_tokens?: number;
+  output_tokens?: number;
+  in_flight_output_tokens?: number;
+  estimated?: boolean;
+  calls?: number;
+  cost?: number | null;
+  currency?: string | null;
   // type: "session"
   session_id?: string;
   // type: "node" (aide)
@@ -102,6 +130,8 @@ export interface JobSummary {
   last_event: JobEvent | null;
   resume_session_ids?: string[];
   pending_approvals?: { request_id?: string; id?: string; question?: string; options?: string[]; default?: string }[];
+  /** live token counts; `{}` until the first call completes */
+  usage?: JobUsage | Record<string, never>;
 }
 
 export interface JobDetail extends JobSummary {

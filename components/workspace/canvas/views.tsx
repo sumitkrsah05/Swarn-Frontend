@@ -6,6 +6,7 @@
  * the live timeline of a running turn.
  */
 
+import { TokenCounter } from "../thread/usage";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -435,6 +436,7 @@ export function AnswerView({ turn }: { turn: Turn }) {
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <SectionLabel>Answer</SectionLabel>
           {turn.outcome && <span className={`font-mono text-11 ${turn.outcome === "complete" ? "text-ok" : "text-warn"}`}>{turn.outcome}</span>}
+          <TokenCounter usage={turn.usage} detail className="text-11" />
           <span className="flex-1" />
           {!turn.manual && turn.steps.length > 0 && (
             <PillButton size="sm" onClick={() => ui.openLog(turn.id)}>
@@ -483,6 +485,7 @@ export function RunningView({ turn }: { turn: Turn }) {
       <div className="mb-3 flex items-center gap-2">
         <SectionLabel>{running ? "Running" : turn.status}</SectionLabel>
         {running && <span className="font-mono text-11 text-muted">{label}</span>}
+        <TokenCounter usage={turn.usage} detail={!running} className="text-11" />
         <span className="flex-1" />
         {running && (
           <Button size="sm" variant="danger" onClick={ui.stop}>

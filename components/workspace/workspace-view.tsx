@@ -66,6 +66,7 @@ function DockedComposer() {
           running={!!running}
           runningLabel={running ? (lastStep ? stepLabel(lastStep) : running.status === "queued" ? "queued…" : "thinking…") : undefined}
           runningSince={running?.startedAt ?? null}
+          runningUsage={running?.usage}
           onStop={ui.stop}
           focusedDataset={focusedDataset}
           datasetNames={datasetNames}

@@ -419,6 +419,15 @@ show `detail` verbatim in a toast or inline banner. There is no auth.
 - `POST /api/jobs/{id}/approve {request_id, answer}` answers a parked
   `approval_request` (AIDE today).
 - React `result` on completion: `{outcome, summary, session_id}`.
+- **Live tokens.** Every job counts its own model calls. `usage` events
+  (`{type:"usage", input_tokens, output_tokens, in_flight_output_tokens,
+  estimated, calls, cost, currency}`) arrive on the job — one per completed
+  call, and at most two a second while a reply streams — and the job summary
+  carries the latest snapshot as `usage` (the final `status` event too).
+  Display `output_tokens + in_flight_output_tokens`; `estimated` is true
+  while a reply is still streaming. The runner keeps it on `turn.usage`
+  and `<TokenCounter>` renders it in the thinking banner, the composer's
+  working overlay and the answer header.
 
 **Conversations.** Every job is a fresh agent. To continue, pass the ordered
 session ids of the context **oldest first**. A session id is valid only after

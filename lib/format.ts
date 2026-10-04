@@ -40,6 +40,15 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${sec}s`;
 }
 
+/** 950 → "950", 12_345 → "12.3k", 1_234_567 → "1.23M" — short enough for a ticking counter. */
+export function formatTokens(n: number | null | undefined): string {
+  if (n == null || !isFinite(n)) return "—";
+  const v = Math.max(0, Math.round(n));
+  if (v < 1000) return String(v);
+  if (v < 1_000_000) return `${(v / 1000).toFixed(1).replace(/[.]0$/, "")}k`;
+  return `${(v / 1_000_000).toFixed(2)}M`;
+}
+
 export function formatBytes(bytes: number | null | undefined): string {
   if (bytes == null) return "—";
   if (bytes < 1024) return `${bytes} B`;

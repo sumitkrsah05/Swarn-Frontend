@@ -13,7 +13,7 @@ import { cancelJob, resumeRun } from "@/api/client";
 import type { EvalJobResult, JobSummary } from "@/api/types";
 import { useJob } from "@/hooks/useJob";
 import { useToast } from "@/components/toast";
-import { formatClock } from "@/lib/format";
+import { formatClock, formatTokens } from "@/lib/format";
 import {
   errorMessage,
   fmtNum,
@@ -100,6 +100,13 @@ export function JobMonitor({
         <span className="font-mono text-xs text-muted">
           elapsed <Elapsed from={job.started ?? job.created} to={job.finished} />
         </span>
+        {job.usage && "calls" in job.usage && job.usage.calls > 0 && (
+          <span className="font-mono text-xs text-muted tabular-nums" title={`${job.usage.input_tokens.toLocaleString()} in / ${(job.usage.output_tokens + job.usage.in_flight_output_tokens).toLocaleString()} out · ${job.usage.calls} calls`}>
+            tokens ↑{formatTokens(job.usage.input_tokens)} ↓{formatTokens(job.usage.output_tokens + job.usage.in_flight_output_tokens)}
+            {job.usage.estimated ? "…" : ""}
+            {job.usage.cost != null && ` · ${fmtUsd(job.usage.cost)}`}
+          </span>
+        )}
         <Badge tone="neutral" title="update source">
           {source === "websocket" ? "live · websocket" : "polling · 1.5 s"}
         </Badge>

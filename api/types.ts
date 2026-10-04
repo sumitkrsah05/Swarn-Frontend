@@ -316,6 +316,16 @@ export interface JobSummary {
   n_events: number;
   last_event: JobEvent | null;
   pending_approvals: unknown[];
+  /** live token counts of the job's own model calls (API.md "Live token usage"); `{}` until one completes */
+  usage?: {
+    input_tokens: number;
+    output_tokens: number;
+    in_flight_output_tokens: number;
+    estimated: boolean;
+    calls: number;
+    cost: number | null;
+    currency: string | null;
+  } | Record<string, never>;
 }
 
 export interface GateResult {

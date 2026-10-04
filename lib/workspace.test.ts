@@ -194,3 +194,16 @@ describe("uid", () => {
     expect(uid()).toBe("native-id");
   });
 });
+
+describe("usageFromJob", () => {
+  it("maps a usage payload and ignores empty or malformed ones", async () => {
+    const { usageFromJob } = await import("./workspace");
+    expect(usageFromJob({})).toBeNull();
+    expect(usageFromJob(null)).toBeNull();
+    expect(
+      usageFromJob({ input_tokens: 120, output_tokens: 30, in_flight_output_tokens: 7, calls: 2, cost: 0.01, currency: "USD", estimated: true }),
+    ).toEqual({ inputTokens: 120, outputTokens: 30, inFlight: 7, calls: 2, cost: 0.01, currency: "USD" });
+    // an unpriced endpoint sends cost: null → no cost on the turn
+    expect(usageFromJob({ input_tokens: 1, output_tokens: 1, calls: 1, cost: null, currency: null })).toEqual({ inputTokens: 1, outputTokens: 1, inFlight: 0, calls: 1 });
+  });
+});
