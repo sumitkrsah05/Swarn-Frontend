@@ -321,7 +321,7 @@ export function Composer({
               </IconButton>
             </div>
             <div className="px-3 pb-2.5">
-              <p className="text-12 text-fg">
+              <p className="max-h-48 overflow-y-auto text-12 whitespace-pre-wrap text-fg">
                 <span className="mr-1 font-mono text-11 text-muted">1.</span>
                 {question.question}
               </p>
@@ -365,186 +365,189 @@ export function Composer({
           </div>
         )}
 
-        {/* context chips */}
-        {(allMentions.length > 0 || attachment || uploadPct !== null) && (
-          <div className="flex flex-wrap items-center gap-1 px-2.5 pt-2">
-            {allMentions.map((name) => {
-              const fixed = name === focusedDataset;
-              return (
-                <span
-                  key={name}
-                  className={`inline-flex h-6 items-center gap-1 rounded-chip border px-1.5 font-mono text-11 ${
-                    fixed ? "border-accent/40 bg-accent-tint text-accent" : "border-edge bg-raised text-fg"
-                  }`}
-                  title={fixed ? "the focused dataset" : "mentioned dataset"}
-                >
-                  <TableIcon size={11} />@{name}
-                  {!fixed && (
-                    <button type="button" onClick={() => removeMention(name)} aria-label={`Remove @${name}`} className="text-muted hover:text-err">
-                      <CloseIcon size={10} />
-                    </button>
-                  )}
+        {/* prompt area — the working overlay covers this, never the question panel above it */}
+        <div className="relative">
+          {/* context chips */}
+          {(allMentions.length > 0 || attachment || uploadPct !== null) && (
+            <div className="flex flex-wrap items-center gap-1 px-2.5 pt-2">
+              {allMentions.map((name) => {
+                const fixed = name === focusedDataset;
+                return (
+                  <span
+                    key={name}
+                    className={`inline-flex h-6 items-center gap-1 rounded-chip border px-1.5 font-mono text-11 ${
+                      fixed ? "border-accent/40 bg-accent-tint text-accent" : "border-edge bg-raised text-fg"
+                    }`}
+                    title={fixed ? "the focused dataset" : "mentioned dataset"}
+                  >
+                    <TableIcon size={11} />@{name}
+                    {!fixed && (
+                      <button type="button" onClick={() => removeMention(name)} aria-label={`Remove @${name}`} className="text-muted hover:text-err">
+                        <CloseIcon size={10} />
+                      </button>
+                    )}
+                  </span>
+                );
+              })}
+              {attachment && (
+                <span className="inline-flex h-6 max-w-full items-center gap-1 rounded-chip border border-edge bg-raised px-1.5 font-mono text-11 text-fg" title={attachment.files.join(", ")}>
+                  <PaperclipIcon size={11} />
+                  <span className="truncate">{attachment.label}</span>
+                  <span className="text-faint">·{attachment.files.length}</span>
+                  <button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment" className="text-muted hover:text-err">
+                    <CloseIcon size={10} />
+                  </button>
                 </span>
-              );
-            })}
-            {attachment && (
-              <span className="inline-flex h-6 max-w-full items-center gap-1 rounded-chip border border-edge bg-raised px-1.5 font-mono text-11 text-fg" title={attachment.files.join(", ")}>
-                <PaperclipIcon size={11} />
-                <span className="truncate">{attachment.label}</span>
-                <span className="text-faint">·{attachment.files.length}</span>
-                <button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment" className="text-muted hover:text-err">
-                  <CloseIcon size={10} />
-                </button>
-              </span>
-            )}
-            {uploadPct !== null && (
-              <span className="inline-flex h-6 items-center gap-1.5 font-mono text-11 text-muted">
-                <span className="h-1 w-20 overflow-hidden rounded bg-raised">
-                  <span className="block h-full bg-accent transition-[width]" style={{ width: `${Math.round(uploadPct * 100)}%` }} />
+              )}
+              {uploadPct !== null && (
+                <span className="inline-flex h-6 items-center gap-1.5 font-mono text-11 text-muted">
+                  <span className="h-1 w-20 overflow-hidden rounded bg-raised">
+                    <span className="block h-full bg-accent transition-[width]" style={{ width: `${Math.round(uploadPct * 100)}%` }} />
+                  </span>
+                  uploading {Math.round(uploadPct * 100)}%
                 </span>
-                uploading {Math.round(uploadPct * 100)}%
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* starter questions */}
-        {starters.length > 0 && showStarters && !running && (
-          <div className="flex flex-wrap gap-1 px-2.5 pt-2">
-            {starters.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => send(s)}
-                className="h-6 max-w-full truncate rounded-card border border-edge bg-raised px-2 text-11 text-fg transition-colors hover:border-accent hover:text-accent"
-                title={s}
-              >
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <textarea
-          ref={(el) => {
-            areaRef.current = el;
-            setAreaEl(el);
-          }}
-          value={text}
-          rows={rows}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
-          onKeyDown={onKeyDown}
-          onFocus={() => {
-            setFocused(true);
-            setTryOpen(true);
-          }}
-          onBlur={() => setFocused(false)}
-          onPaste={(e) => {
-            const files = Array.from(e.clipboardData.files ?? []);
-            if (files.length) {
-              e.preventDefault();
-              void doUpload(files);
-            }
-          }}
-          placeholder={placeholder}
-          aria-label="Ask swarn"
-          aria-autocomplete="list"
-          aria-controls={picker ? listId : undefined}
-          aria-expanded={!!picker}
-          role="combobox"
-          className="block w-full resize-none bg-transparent px-3 py-2.5 text-13 leading-relaxed text-fg placeholder:text-faint focus:outline-none disabled:opacity-60"
-        />
-
-        {/* toolbar */}
-        <div className="flex items-center gap-1 px-2 pb-2">
-          <IconButton label="Attach files" onClick={() => fileRef.current?.click()} disabled={busy || uploadPct !== null}>
-            <PlusIcon size={16} />
-          </IconButton>
-          <input
-            ref={fileRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              void doUpload(Array.from(e.target.files ?? []));
-              e.target.value = "";
-            }}
-          />
-          {starters.length > 0 && (
-            <IconButton label={showStarters ? "Hide starter questions" : "Show starter questions"} active={showStarters} onClick={() => setShowStarters((s) => !s)}>
-              <BoltIcon size={15} />
-            </IconButton>
-          )}
-          <span className="flex-1" />
-          {onReport && (
-            <button
-              type="button"
-              onClick={onReport}
-              disabled={busy}
-              aria-label="Generate a report"
-              className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-12 text-muted transition-colors hover:bg-hover hover:text-fg disabled:opacity-40 @[440px]:px-2"
-              title="Ask for a report of the findings so far"
-            >
-              <PencilIcon size={13} />
-              <span className="hidden whitespace-nowrap @[440px]:inline">Generate a report</span>
-            </button>
-          )}
-          {onSuggest && (
-            <button
-              type="button"
-              onClick={onSuggest}
-              disabled={busy}
-              aria-label="Suggest next steps"
-              className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-12 text-muted transition-colors hover:bg-hover hover:text-fg disabled:opacity-40 @[440px]:px-2"
-              title="Ask for 3–5 next analyses"
-            >
-              <BulbIcon size={13} />
-              <span className="hidden whitespace-nowrap @[440px]:inline">Suggest next steps</span>
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => send()}
-            disabled={!canSend}
-            aria-label="Send"
-            title="Send (Enter)"
-            className={`ml-1 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed ${
-              canSend ? "bg-accent text-on-accent hover:opacity-90" : "bg-raised text-faint"
-            }`}
-          >
-            <ArrowUpIcon size={15} />
-          </button>
-        </div>
-
-        {/* working overlay */}
-        {running && (
-          <div className="absolute inset-0 z-[2] flex flex-col bg-panel/95" role="status" aria-live="polite">
-            <div className="flex flex-1 items-center gap-3 px-3">
-              <PencilIcon size={16} className="shrink-0 text-accent animate-wobble motion-reduce:animate-none" />
-              <div className="min-w-0 flex-1">
-                <div className="text-13 text-fg">swarn is working…</div>
-                <div className="truncate font-mono text-11 text-muted">
-                  {runningLabel ?? "thinking…"}
-                  {elapsed && <span className="ml-2 text-faint">{elapsed}</span>}
-                  <TokenCounter usage={runningUsage} className="ml-2 text-11" />
-                </div>
-              </div>
-              {onStop && (
-                <button
-                  type="button"
-                  onClick={onStop}
-                  aria-label="Stop the run"
-                  title="Stop"
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-err text-white transition-opacity hover:opacity-90"
-                >
-                  <StopIcon size={14} />
-                </button>
               )}
             </div>
-            <ProgressBar />
+          )}
+
+          {/* starter questions */}
+          {starters.length > 0 && showStarters && !running && (
+            <div className="flex flex-wrap gap-1 px-2.5 pt-2">
+              {starters.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => send(s)}
+                  className="h-6 max-w-full truncate rounded-card border border-edge bg-raised px-2 text-11 text-fg transition-colors hover:border-accent hover:text-accent"
+                  title={s}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <textarea
+            ref={(el) => {
+              areaRef.current = el;
+              setAreaEl(el);
+            }}
+            value={text}
+            rows={rows}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+            onKeyDown={onKeyDown}
+            onFocus={() => {
+              setFocused(true);
+              setTryOpen(true);
+            }}
+            onBlur={() => setFocused(false)}
+            onPaste={(e) => {
+              const files = Array.from(e.clipboardData.files ?? []);
+              if (files.length) {
+                e.preventDefault();
+                void doUpload(files);
+              }
+            }}
+            placeholder={placeholder}
+            aria-label="Ask swarn"
+            aria-autocomplete="list"
+            aria-controls={picker ? listId : undefined}
+            aria-expanded={!!picker}
+            role="combobox"
+            className="block w-full resize-none bg-transparent px-3 py-2.5 text-13 leading-relaxed text-fg placeholder:text-faint focus:outline-none disabled:opacity-60"
+          />
+
+          {/* toolbar */}
+          <div className="flex items-center gap-1 px-2 pb-2">
+            <IconButton label="Attach files" onClick={() => fileRef.current?.click()} disabled={busy || uploadPct !== null}>
+              <PlusIcon size={16} />
+            </IconButton>
+            <input
+              ref={fileRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                void doUpload(Array.from(e.target.files ?? []));
+                e.target.value = "";
+              }}
+            />
+            {starters.length > 0 && (
+              <IconButton label={showStarters ? "Hide starter questions" : "Show starter questions"} active={showStarters} onClick={() => setShowStarters((s) => !s)}>
+                <BoltIcon size={15} />
+              </IconButton>
+            )}
+            <span className="flex-1" />
+            {onReport && (
+              <button
+                type="button"
+                onClick={onReport}
+                disabled={busy}
+                aria-label="Generate a report"
+                className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-12 text-muted transition-colors hover:bg-hover hover:text-fg disabled:opacity-40 @[440px]:px-2"
+                title="Ask for a report of the findings so far"
+              >
+                <PencilIcon size={13} />
+                <span className="hidden whitespace-nowrap @[440px]:inline">Generate a report</span>
+              </button>
+            )}
+            {onSuggest && (
+              <button
+                type="button"
+                onClick={onSuggest}
+                disabled={busy}
+                aria-label="Suggest next steps"
+                className="inline-flex h-7 items-center gap-1 rounded-md px-1.5 text-12 text-muted transition-colors hover:bg-hover hover:text-fg disabled:opacity-40 @[440px]:px-2"
+                title="Ask for 3–5 next analyses"
+              >
+                <BulbIcon size={13} />
+                <span className="hidden whitespace-nowrap @[440px]:inline">Suggest next steps</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => send()}
+              disabled={!canSend}
+              aria-label="Send"
+              title="Send (Enter)"
+              className={`ml-1 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed ${
+                canSend ? "bg-accent text-on-accent hover:opacity-90" : "bg-raised text-faint"
+              }`}
+            >
+              <ArrowUpIcon size={15} />
+            </button>
           </div>
-        )}
+
+          {/* working overlay */}
+          {running && (
+            <div className="absolute inset-0 z-[2] flex flex-col bg-panel/95" role="status" aria-live="polite">
+              <div className="flex flex-1 items-center gap-3 px-3">
+                <PencilIcon size={16} className="shrink-0 text-accent animate-wobble motion-reduce:animate-none" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-13 text-fg">swarn is working…</div>
+                  <div className="truncate font-mono text-11 text-muted">
+                    {runningLabel ?? "thinking…"}
+                    {elapsed && <span className="ml-2 text-faint">{elapsed}</span>}
+                    <TokenCounter usage={runningUsage} className="ml-2 text-11" />
+                  </div>
+                </div>
+                {onStop && (
+                  <button
+                    type="button"
+                    onClick={onStop}
+                    aria-label="Stop the run"
+                    title="Stop"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-err text-white transition-opacity hover:opacity-90"
+                  >
+                    <StopIcon size={14} />
+                  </button>
+                )}
+              </div>
+              <ProgressBar />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* @ dataset picker */}

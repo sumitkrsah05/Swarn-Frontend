@@ -67,7 +67,7 @@ export function ApprovalCard({ jobId, q, onAnswered }: { jobId: string; q: Pendi
         <span className="text-11 font-bold tracking-[0.04em] uppercase">Question</span>
         <span className="ml-auto font-mono text-10 text-faint">awaiting your answer</span>
       </div>
-      <p className="mt-1.5 text-12 text-fg">{q.question}</p>
+      <p className="mt-1.5 max-h-64 overflow-y-auto text-12 whitespace-pre-wrap text-fg">{q.question}</p>
       {q.options.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {q.options.map((o) => (
