@@ -5,7 +5,7 @@
  *
  *   left    logo box · "swarn" wordmark · Workspace · Jobs · History · Evals · Files
  *   centre  the workspace name ▾ (Workspace) or the page title as a label
- *   right   model name · live dot · theme toggle · ⋮ (Playbook, API docs)
+ *   right   model name · live dot · theme toggle · account (sign out) · ⋮ (Playbook, API docs)
  *
  * Below 900px the nav collapses into a dropdown and the right cluster into ⋮.
  */
@@ -14,6 +14,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { API_BASE } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { useLiveStatus, type WsStatus } from "@/lib/live";
 import { useEndpoints } from "@/hooks/useEvalData";
 import { useActiveWorkspace, useWorkspaceActions } from "@/lib/workspace-store";
@@ -26,6 +27,7 @@ import {
   IconButton,
   Menu,
   MoreIcon,
+  PersonIcon,
   SectionLabel,
   SwarnMark,
   type MenuItem,
@@ -78,7 +80,48 @@ const WS_LABEL: Record<WsStatus, { text: string; dot: string }> = {
   connecting: { text: "connecting to the live feed", dot: "bg-warn" },
   live: { text: "live feed connected", dot: "bg-ok" },
   reconnecting: { text: "live feed reconnecting — polling instead", dot: "bg-warn animate-pulse motion-reduce:animate-none" },
+  offline: { text: "live feed off — not signed in", dot: "bg-faint" },
 };
+
+/** Avatar + menu: who is signed in, their role, sign out (here or everywhere). */
+function AccountMenu() {
+  const { user, signOut } = useAuth();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const [open, setOpen] = useState(false);
+  if (!user) return null;
+  const name = user.display_name || user.email;
+  const items: MenuItem[] = [
+    { label: <span className="truncate">{name}</span>, disabled: true },
+    { label: <span className="truncate font-mono text-11">{user.email}{user.role === "admin" ? " · admin" : ""}</span>, disabled: true },
+    { label: "Sign out", onSelect: () => void signOut(false), separator: true },
+    { label: "Sign out everywhere", onSelect: () => void signOut(true), danger: true },
+  ];
+  return (
+    <>
+      <button
+        type="button"
+        ref={setAnchor}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Account: ${name}`}
+        title={`${name} (${user.email})`}
+        className="flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-hover hover:text-fg"
+      >
+        {user.avatar_url ? (
+          // the Google profile picture; not an app asset
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.avatar_url} alt="" referrerPolicy="no-referrer" className="h-6 w-6 rounded-full border border-edge" />
+        ) : (
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-fill text-11 font-medium uppercase text-fg">
+            {name.trim().charAt(0) || <PersonIcon size={13} />}
+          </span>
+        )}
+      </button>
+      <Menu anchor={anchor} open={open} onClose={() => setOpen(false)} items={items} label="Account" width={260} />
+    </>
+  );
+}
 
 function LiveDot({ compact }: { compact?: boolean }) {
   const status = useLiveStatus();
@@ -238,6 +281,7 @@ export function AppBar() {
         <LiveDot compact />
       </div>
       <ThemeToggle />
+      <AccountMenu />
       <IconButton label="More" ref={setMoreAnchor} onClick={() => setMoreOpen((o) => !o)} aria-haspopup="menu" aria-expanded={moreOpen}>
         <MoreIcon size={16} />
       </IconButton>

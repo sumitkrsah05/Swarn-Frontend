@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, uploadFiles, ApiError, type Method, type UploadBatch } from "@/lib/api";
 import { formatBytes, formatTime } from "@/lib/format";
 import { useToast } from "@/components/toast";
+import { useActiveWorkspace, useWorkspaceActions } from "@/lib/workspace-store";
 import { Button, Field, Input, SectionLabel, Textarea, UploadIcon } from "@/components/ui";
 
 const METHODS: { id: Method; name: string; tagline: string; detail: string }[] = [
@@ -41,6 +42,9 @@ interface SelectedData {
 
 export function NewRunForm({ onSubmitted, initialTask = "" }: { onSubmitted: (jobId: string) => void; initialTask?: string }) {
   const toast = useToast();
+  // the open UI workspace, if any — otherwise the backend runs the job in the user's `Scratch` workspace
+  const active = useActiveWorkspace();
+  const wsActions = useWorkspaceActions();
 
   const [task, setTask] = useState(initialTask);
   const [method, setMethod] = useState<Method>("react");
@@ -91,11 +95,13 @@ export function NewRunForm({ onSubmitted, initialTask = "" }: { onSubmitted: (jo
     if (!canSubmit) return;
     setSubmitting(true);
     try {
+      const workspace_id = active ? await wsActions.ensureServerId(active.id) : undefined;
       const job = await api.createJob({
         task: task.trim(),
         method,
         data_dir: data?.dataDir || undefined,
         steps: method === "aide" ? steps : undefined,
+        workspace_id,
       });
       onSubmitted(job.id);
     } catch (e) {

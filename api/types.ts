@@ -160,8 +160,26 @@ export interface DesignRequest {
   goal: string;
   dataset_path: string;
   candidates?: ModelConfig[];
+  /** judge for judge_* / rag_* metrics; default: the deployed model */
+  judge?: ModelConfig;
   train_path?: string;
 }
+
+/** `POST /api/eval/auto`: design + run + self-heal + stage-2 as one job. */
+export interface AutoRequest extends DesignRequest {
+  label?: string;
+  /** the only brake on an unattended loop — always set */
+  max_cost_usd: number;
+}
+
+/**
+ * The first thing to do about a finished run, as the backend computes it
+ * (outcome.py): resume with more rows, change the judge, or fix an endpoint.
+ */
+export type NextAction =
+  | { kind: "resume"; run_id: string; add_rows: number; reason: string }
+  | { kind: "change_judge"; reason: string }
+  | { kind: "fix_endpoint"; candidate: string; reason: string };
 
 export interface PlanCandidate {
   name: string;
@@ -357,6 +375,9 @@ export interface EvalJobResult {
   gates_passed: boolean | null;
   caveats: string[];
   report_url: string;
+  /** /evals/<run_id> */
+  page_url?: string;
+  next_action?: NextAction | null;
 }
 
 export interface JobDetail extends JobSummary {
@@ -514,6 +535,8 @@ export interface RunDetail {
   /** e.g. {"report.md": true, "report.html": false} */
   artifacts: Record<string, boolean>;
   job: JobSummary | null;
+  /** the same hint the agent tools act on; absent on older backends */
+  next_action?: NextAction | null;
 }
 
 export interface RebuildReportResponse {

@@ -3,10 +3,11 @@ import { IBM_Plex_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { LiveProvider } from "@/lib/live";
+import { AuthProvider } from "@/lib/auth";
 import { ToastProvider } from "@/components/toast";
 import { AppShell } from "@/components/app-shell";
 import { QueryProvider } from "@/components/query-provider";
-import { WorkspaceProvider } from "@/lib/workspace-store";
+import { WorkspaceProvider, WorkspaceServerSync } from "@/lib/workspace-store";
 import { RunnerProvider } from "@/hooks/useWorkspaceRunner";
 import { THEME_BOOT_SCRIPT } from "@/lib/theme";
 
@@ -58,16 +59,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full bg-bg text-fg">
         <QueryProvider>
-          <LiveProvider>
-            <ToastProvider>
-              <WorkspaceProvider>
-                {/* one runner for every workspace: jobs keep streaming on any page */}
-                <RunnerProvider>
-                  <AppShell>{children}</AppShell>
-                </RunnerProvider>
-              </WorkspaceProvider>
-            </ToastProvider>
-          </LiveProvider>
+          {/* who is signed in; a 401 anywhere sends the browser to /login */}
+          <AuthProvider>
+            <LiveProvider>
+              <ToastProvider>
+                <WorkspaceProvider>
+                  {/* mirrors workspaces to the backend once signed in */}
+                  <WorkspaceServerSync />
+                  {/* one runner for every workspace: jobs keep streaming on any page */}
+                  <RunnerProvider>
+                    <AppShell>{children}</AppShell>
+                  </RunnerProvider>
+                </WorkspaceProvider>
+              </ToastProvider>
+            </LiveProvider>
+          </AuthProvider>
         </QueryProvider>
       </body>
     </html>

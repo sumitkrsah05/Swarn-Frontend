@@ -97,6 +97,16 @@ export const TOOL_META: Record<string, ToolMeta> = {
   swarn_doc_ingest: { label: "ingesting the document…", icon: "search" },
   swarn_doc_ask: { label: "answering from the document…", icon: "search" },
   swarn_doc_inspect: { label: "inspecting the document…", icon: "search" },
+  // LLM evaluation (swarn eval)
+  design_llm_eval: { label: "designing the evaluation…", icon: "sparkle" },
+  check_eval_config: { label: "checking the eval config and cost…", icon: "search" },
+  evaluate_llm: { label: "evaluating the model…", icon: "model" },
+  resume_eval: { label: "resuming the evaluation…", icon: "model" },
+  run_llm_eval_autonomously: { label: "designing and running the evaluation…", icon: "model" },
+  check_eval_job: { label: "checking the evaluation job…", icon: "search" },
+  list_eval_runs: { label: "listing evaluation runs…", icon: "search" },
+  get_eval_run: { label: "reading an evaluation run…", icon: "report" },
+  compare_eval_runs: { label: "comparing evaluation runs…", icon: "chart", chart: "bar" },
 };
 
 const GENERIC: ToolMeta = { label: "working…", icon: "sparkle" };

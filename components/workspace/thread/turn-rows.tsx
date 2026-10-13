@@ -10,7 +10,7 @@
 import { useState } from "react";
 import type { Turn } from "@/lib/workspace";
 import { useWorkspaceUi } from "../context";
-import { AnswerCard, ChartThumb, MergeRow, PlanLine, PromptCard, ReportCard, TableCard } from "./rows";
+import { AnswerCard, ChartThumb, EvalRunCard, MergeRow, PlanLine, PromptCard, ReportCard, TableCard } from "./rows";
 import { ThinkingSteps } from "./thinking";
 import { GutterRow, RobotIcon } from "@/components/ui";
 
@@ -46,7 +46,8 @@ export function TurnRows({ turn, first, last }: { turn: Turn; first: boolean; la
       });
   const composingReport = running && turn.intent === "report" && turn.artifacts.reports.length === 0;
   const hasAnswer = !!turn.answer && !running;
-  const rowsAfter = datasets.length + charts.length + turn.artifacts.reports.length + (hasAnswer ? 1 : 0) + (composingReport ? 1 : 0);
+  const evalRuns = turn.artifacts.evalRuns ?? [];
+  const rowsAfter = datasets.length + charts.length + turn.artifacts.reports.length + evalRuns.length + (hasAnswer ? 1 : 0) + (composingReport ? 1 : 0);
   const lastRowIsAnswer = hasAnswer;
 
   return (
@@ -86,6 +87,11 @@ export function TurnRows({ turn, first, last }: { turn: Turn; first: boolean; la
         </Enter>
       ))}
       {composingReport && <ReportCard turn={turn} report={null} index={-1} lineage={lineage} />}
+      {evalRuns.map((e) => (
+        <Enter key={`eval:${e.runId}`} live={live} index={order++}>
+          <EvalRunCard run={e} lineage={lineage} />
+        </Enter>
+      ))}
       {hasAnswer && (
         <Enter live={live} index={order++}>
           <AnswerCard turn={turn} lineage={lineage} last={last && lastRowIsAnswer} />

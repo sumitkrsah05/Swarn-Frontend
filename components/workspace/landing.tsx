@@ -35,6 +35,7 @@ import {
 
 function WorkspaceCard({ ws, onOpen }: { ws: Workspace; onOpen: () => void }) {
   const actions = useWorkspaceActions();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
   const [armed, setArmed] = useState(false);
@@ -45,7 +46,7 @@ function WorkspaceCard({ ws, onOpen }: { ws: Workspace; onOpen: () => void }) {
         <span className="flex w-[72px] shrink-0 items-center justify-center border-r border-edge bg-raised text-faint">
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={workspaceFileUrl(cover)} alt="" loading="lazy" className="h-full w-full object-cover" />
+            <img src={workspaceFileUrl(cover, ws.serverId)} alt="" loading="lazy" className="h-full w-full object-cover" />
           ) : (
             <TableIcon size={22} />
           )}
@@ -75,7 +76,7 @@ function WorkspaceCard({ ws, onOpen }: { ws: Workspace; onOpen: () => void }) {
         {armed ? (
           <span className="flex items-center gap-0.5 rounded-canvas border border-err/40 bg-panel p-0.5 text-11 text-err shadow-hair">
             delete?
-            <IconButton label="Confirm delete" size={22} tone="danger" onClick={() => actions.remove(ws.id)}>
+            <IconButton label="Confirm delete" size={22} tone="danger" onClick={() => void actions.remove(ws.id).catch((e) => toast("error", e instanceof Error ? e.message : "Could not delete the workspace"))}>
               <CheckIcon size={12} />
             </IconButton>
             <IconButton label="Keep" size={22} onClick={() => setArmed(false)}>

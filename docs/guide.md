@@ -406,7 +406,7 @@ structured artifacts rather than relying on regexes.
 ## 4. Existing API you will use (unchanged)
 
 The base URL comes from `NEXT_PUBLIC_SWARN_API` (default
-`http://localhost:8420`). Errors are `{"detail": "..."}` with a 4xx status;
+`http://localhost:8000`). Errors are `{"detail": "..."}` with a 4xx status;
 show `detail` verbatim in a toast or inline banner. There is no auth.
 
 **Jobs.**

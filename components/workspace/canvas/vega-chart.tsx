@@ -14,24 +14,31 @@
  *    already have a PNG)
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, isDatasetGone, workspaceFileUrl, type RowsResponse } from "@/lib/api";
 import { rowsToObjects } from "@/lib/vega";
 import type { ChartArtifact } from "@/lib/workspace";
+import { WorkspaceUiContext } from "../context";
 import { BarChartIcon, Loading } from "@/components/ui";
 
 export const VEGA_ROW_LIMIT = 5000;
 
-export function useDatasetSample(name: string | null | undefined) {
+/** The surrounding workspace's server id, when rendered inside one (live or static). */
+function useScopeWorkspaceId(): string | null {
+  return useContext(WorkspaceUiContext)?.ws.serverId ?? null;
+}
+
+export function useDatasetSample(name: string | null | undefined, workspaceId?: string | null) {
+  const sid = workspaceId ?? null;
   return useQuery<RowsResponse>({
-    queryKey: ["data", "sample", name, VEGA_ROW_LIMIT],
-    queryFn: () => api.datasetRows(name as string, { limit: 1000, offset: 0 }).then(async (first) => {
+    queryKey: ["data", "sample", sid, name, VEGA_ROW_LIMIT],
+    queryFn: () => api.datasetRows(name as string, { limit: 1000, offset: 0 }, sid).then(async (first) => {
       // the API caps a page at 1000 rows; pull up to 5 pages
       const pages = [first];
       let got = first.rows.length;
       while (got < Math.min(first.total, VEGA_ROW_LIMIT) && pages.length < 5) {
-        const next = await api.datasetRows(name as string, { limit: 1000, offset: got });
+        const next = await api.datasetRows(name as string, { limit: 1000, offset: got }, sid);
         if (!next.rows.length) break;
         pages.push(next);
         got += next.rows.length;
@@ -61,10 +68,11 @@ export function agentSpecMeta(spec: Record<string, unknown> | undefined | null):
 }
 
 /** The agent chart's spec file. It never changes once written, so it is cached for the session. */
-export function useAgentSpec(specPath: string | null | undefined) {
+export function useAgentSpec(specPath: string | null | undefined, workspaceId?: string | null) {
+  const sid = workspaceId ?? null;
   return useQuery<Record<string, unknown>>({
-    queryKey: ["workspace", "spec", specPath],
-    queryFn: () => api.getWorkspaceJson(specPath as string),
+    queryKey: ["workspace", "spec", sid, specPath],
+    queryFn: () => api.getWorkspaceJson(specPath as string, sid),
     enabled: !!specPath,
     staleTime: Infinity,
     retry: 1,
@@ -110,7 +118,7 @@ function useThemeTick(): number {
 }
 
 export function VegaChart({ spec, dataset, className = "" }: { spec: Record<string, unknown>; dataset: string | undefined; className?: string }) {
-  const sample = useDatasetSample(dataset);
+  const sample = useDatasetSample(dataset, useScopeWorkspaceId());
   const ref = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const values = useMemo(() => (sample.data ? rowsToObjects(sample.data.columns, sample.data.rows) : null), [sample.data]);
@@ -162,7 +170,8 @@ export function VegaChart({ spec, dataset, className = "" }: { spec: Record<stri
  * (300px: histograms, scatter, lines, box plots) stretch to the canvas.
  */
 export function AgentVegaChart({ chart, title, className = "" }: { chart: ChartArtifact; title?: string; className?: string }) {
-  const spec = useAgentSpec(chart.specPath);
+  const sid = useScopeWorkspaceId();
+  const spec = useAgentSpec(chart.specPath, sid);
   const ref = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const themeTick = useThemeTick();
@@ -194,7 +203,7 @@ export function AgentVegaChart({ chart, title, className = "" }: { chart: ChartA
       <div className={`relative flex h-full w-full items-center justify-center ${className}`}>
         {/* agent-produced media: a plain <img> */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={workspaceFileUrl(chart.path)} alt={title ?? "chart"} className="max-h-full max-w-full rounded-panel border border-edge bg-white" />
+        <img src={workspaceFileUrl(chart.path, sid)} alt={title ?? "chart"} className="max-h-full max-w-full rounded-panel border border-edge bg-white" />
         <div className="absolute inset-x-0 bottom-0 p-2 text-center text-11 text-muted" title={error ?? (spec.error as Error | undefined)?.message}>
           Showing the saved image — the live chart could not be {spec.isError ? "loaded" : "rendered"}.
         </div>
@@ -227,7 +236,7 @@ function thumbKey(chart: ChartArtifact): string {
 }
 
 export function VegaThumb({ chart, width, height }: { chart: ChartArtifact; width: number; height: number }) {
-  const sample = useDatasetSample(chart.dataset);
+  const sample = useDatasetSample(chart.dataset, useScopeWorkspaceId());
   const key = thumbKey(chart);
   const [cached, setCached] = useState<{ key: string; url: string } | null>(() => {
     const hit = thumbCache.get(key);

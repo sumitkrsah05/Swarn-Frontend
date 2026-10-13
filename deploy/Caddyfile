@@ -4,17 +4,17 @@ encode gzip
 
 # the API and its live websocket
 handle /api/* {
-	reverse_proxy api:8420
+	reverse_proxy api:8000
 }
 handle /ws/* {
-	reverse_proxy api:8420
+	reverse_proxy api:8000
 }
 # FastAPI's interactive docs (linked from the app bar's ⋮ menu)
 handle /docs* {
-	reverse_proxy api:8420
+	reverse_proxy api:8000
 }
 handle /openapi.json {
-	reverse_proxy api:8420
+	reverse_proxy api:8000
 }
 
 # everything else is the Next.js app

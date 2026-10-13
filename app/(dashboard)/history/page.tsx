@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, type RunSummary, type SessionSummary } from "@/lib/api";
 import { formatDuration, formatMetric, formatTime } from "@/lib/format";
+import { useActiveWorkspace } from "@/lib/workspace-store";
 import {
   Badge,
   CellText,
@@ -18,6 +19,7 @@ import {
   HistoryIcon,
   Loading,
   PageFrame,
+  PillButton,
   SectionLabel,
   SkeletonRows,
   TABLE,
@@ -30,17 +32,20 @@ import {
 
 type TabId = "sessions" | "runs";
 
-function SessionsTab() {
+/** `null` = every workspace of the user; a server id = that workspace only */
+type Scope = string | null;
+
+function SessionsTab({ scope }: { scope: Scope }) {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api
-      .listSessions(100)
+      .listSessions(100, scope)
       .then((r) => setSessions(r.sessions))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [scope]);
 
   if (error) return <ErrorNote message={error} />;
   if (sessions === null) return <SkeletonRows rows={6} />;
@@ -90,17 +95,17 @@ function SessionsTab() {
   );
 }
 
-function RunsTab() {
+function RunsTab({ scope }: { scope: Scope }) {
   const router = useRouter();
   const [runs, setRuns] = useState<RunSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api
-      .listRuns(100)
+      .listRuns(100, scope)
       .then((r) => setRuns(r.runs))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
+  }, [scope]);
 
   if (error) return <ErrorNote message={error} />;
   if (runs === null) return <SkeletonRows rows={5} />;
@@ -151,13 +156,17 @@ function History() {
   const router = useRouter();
   const requested = search.get("tab");
   const tab: TabId = requested === "runs" ? "runs" : "sessions";
+  const active = useActiveWorkspace();
+  const activeServer = active?.serverId ?? null;
+  const [onlyOpen, setOnlyOpen] = useState(false);
+  const scope: Scope = onlyOpen && activeServer ? activeServer : null;
   return (
     <PageFrame>
       <div className="mb-3">
         <SectionLabel>History</SectionLabel>
         <p className="mt-0.5 text-12 text-muted">Completed ReAct / Team sessions with their traces, and AIDE solution-search runs.</p>
       </div>
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Tabs<TabId>
           active={tab}
           onChange={(id) => router.replace(`/history?tab=${id}`)}
@@ -166,8 +175,14 @@ function History() {
             { id: "runs", label: "AIDE runs" },
           ]}
         />
+        {activeServer && (
+          <PillButton size="sm" active={onlyOpen} onClick={() => setOnlyOpen((v) => !v)} className="ml-auto" title={`Show only the workspace "${active?.name}"`}>
+            {onlyOpen ? `only "${active?.name}"` : "all workspaces"}
+          </PillButton>
+        )}
       </div>
-      {tab === "sessions" ? <SessionsTab /> : <RunsTab />}
+      {/* keyed on the scope so a switch starts from the skeleton, not the other scope's rows */}
+      {tab === "sessions" ? <SessionsTab key={scope ?? "all"} scope={scope} /> : <RunsTab key={scope ?? "all"} scope={scope} />}
     </PageFrame>
   );
 }

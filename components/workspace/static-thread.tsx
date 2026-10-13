@@ -28,7 +28,12 @@ export function StaticWorkspaceUiProvider({ ws, children }: { ws: Workspace; chi
   const focus = chosen === undefined ? ws.focus : chosen;
   const [dialog, setDialog] = useState<DialogRequest | null>(null);
   const running = ws.turns.find((t) => t.status === "queued" || t.status === "running");
-  const datasetsQuery = useQuery({ queryKey: ["data", "datasets"], queryFn: api.listDatasets, refetchInterval: running ? 4000 : 60000 });
+  const serverId = ws.serverId ?? null;
+  const datasetsQuery = useQuery({
+    queryKey: ["data", "datasets", serverId],
+    queryFn: () => api.listDatasets(serverId),
+    refetchInterval: running ? 4000 : 60000,
+  });
   const datasets = useMemo(() => datasetsQuery.data?.datasets ?? [], [datasetsQuery.data]);
   const focusedTurnId = refTurnId(focus);
   const lineage = useMemo(() => lineageIds(ws, focusedTurnId), [ws, focusedTurnId]);

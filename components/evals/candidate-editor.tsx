@@ -72,12 +72,19 @@ export function CandidateEditor({
   onChange,
   addMocks,
   onAddMocksChange,
+  max,
+  emptyHint,
 }: {
   candidates: ModelConfig[];
   onChange: (c: ModelConfig[]) => void;
-  addMocks: boolean;
-  onAddMocksChange: (v: boolean) => void;
+  /** omit both mock props to hide the baselines toggle (e.g. when picking a judge) */
+  addMocks?: boolean;
+  onAddMocksChange?: (v: boolean) => void;
+  /** stop offering "add" once this many models are listed (1 for a judge) */
+  max?: number;
+  emptyHint?: string;
 }) {
+  const canAdd = max == null || candidates.length < max;
   const endpoints = useEndpoints();
   const [editing, setEditing] = useState<{ index: number | null; draft: ModelConfig } | null>(null);
   const [keySource, setKeySource] = useState<KeySource>("paste");
@@ -141,8 +148,8 @@ export function CandidateEditor({
 
       {candidates.length === 0 ? (
         <p className="rounded-md border border-dashed border-edge px-3 py-3 text-sm text-muted">
-          No candidates yet. Add the deployed model or configure one by hand. Leaving this empty
-          lets the designer choose from the deployed endpoint.
+          {emptyHint ??
+            "No candidates yet. Add the deployed model or configure one by hand. Leaving this empty lets the designer choose from the deployed endpoint."}
         </p>
       ) : (
         <ul className="divide-y divide-edge overflow-hidden rounded-lg border border-edge">
@@ -160,6 +167,7 @@ export function CandidateEditor({
         </ul>
       )}
 
+      {canAdd && (
       <div className="flex flex-wrap gap-2">
         <Button onClick={addDeployed} disabled={!endpoints.data} title={endpoints.data ? `${endpoints.data.deployed.model} @ ${endpoints.data.deployed.base_url}` : "loading endpoints…"}>
           Add deployed model
@@ -169,13 +177,16 @@ export function CandidateEditor({
         </Button>
         <Button onClick={startAdd}>Add model</Button>
       </div>
+      )}
 
-      <Checkbox
-        checked={addMocks}
-        onChange={onAddMocksChange}
-        label="Add mock baselines (perfect + echo)"
-        hint="They prove the scoring works: a perfect mock must score high and an echo mock low, or the judge/rubric is not discriminating."
-      />
+      {onAddMocksChange && (
+        <Checkbox
+          checked={!!addMocks}
+          onChange={onAddMocksChange}
+          label="Add mock baselines (perfect + echo)"
+          hint="They prove the scoring works: a perfect mock must score high and an echo mock low, or the judge/rubric is not discriminating."
+        />
+      )}
 
       {editing && (
         <Card

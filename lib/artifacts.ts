@@ -12,6 +12,7 @@ import { toolMeta } from "./toolMeta";
 import type {
   ChartArtifact,
   DatasetArtifact,
+  EvalRunArtifact,
   FileArtifact,
   ReportArtifact,
   TurnArtifacts,
@@ -27,6 +28,37 @@ const RE_REPORT = /\b([\w./-]+_report\.(?:md|html))\b/g;
 const RE_SPEC = /Vega-Lite spec:\s*(\S+\.vl\.json)/gi;
 
 const PARENT_KEYS = ["name", "names", "left", "right", "dataset", "sources", "datasets"];
+
+/** Agent tools whose result describes an LLM-evaluation run (agent/runtime/tools.py §2.14). */
+export const EVAL_RUN_TOOLS = new Set([
+  "evaluate_llm",
+  "resume_eval",
+  "run_llm_eval_autonomously",
+  "check_eval_job",
+  "get_eval_run",
+]);
+// the tools end their result with a `JSON:` block carrying these keys
+const RE_EVAL_RUN_ID = /"run_id":\s*"(\d{8}-\d{6}-[0-9a-f]{6}(?:-\d+)?)"/;
+const RE_EVAL_GATES = /"gates_passed":\s*(true|false|null)/;
+const RE_EVAL_STATUS = /"status":\s*"([a-z]+)"/;
+
+/** The parse fallback for eval runs: the run id (and verdict) in an eval tool's result. */
+export function evalRunsFromText(tool: string, text: string, step = 0): EvalRunArtifact[] {
+  if (!EVAL_RUN_TOOLS.has(tool) || !text) return [];
+  const id = RE_EVAL_RUN_ID.exec(text);
+  if (!id) return [];
+  const gates = RE_EVAL_GATES.exec(text);
+  const status = RE_EVAL_STATUS.exec(text);
+  return [
+    {
+      runId: id[1],
+      gatesPassed: gates ? (gates[1] === "true" ? true : gates[1] === "false" ? false : null) : null,
+      status: status ? status[1] : null,
+      tool,
+      step,
+    },
+  ];
+}
 
 export type FileKind = FileArtifact["kind"];
 
@@ -134,7 +166,7 @@ export function specPathFor(chartPath: string): string {
  * parents in the fallback; it is extended with any new names.
  */
 export function artifactsFromStep(step: SessionStep, known: Set<string>): TurnArtifacts {
-  const out: TurnArtifacts = { datasets: [], charts: [], reports: [], files: [] };
+  const out: TurnArtifacts = { datasets: [], charts: [], reports: [], files: [], evalRuns: [] };
   if (step.kind !== "tool_result") return out;
   const tool = typeof step.data.tool === "string" ? step.data.tool : "";
   const stepNo = typeof step.data.step === "number" ? step.data.step : 0;
@@ -161,7 +193,10 @@ export function artifactsFromStep(step: SessionStep, known: Set<string>): TurnAr
     }
   };
 
-  if (structured && (structured.datasets?.length || structured.files?.length)) {
+  if (structured && (structured.datasets?.length || structured.files?.length || structured.eval_runs?.length)) {
+    for (const e of structured.eval_runs ?? []) {
+      out.evalRuns!.push({ runId: e.run_id, gatesPassed: e.gates_passed ?? null, status: e.status ?? null, tool: e.tool ?? tool, step: stepNo });
+    }
     for (const d of structured.datasets ?? []) {
       out.datasets.push({
         name: d.name,
@@ -184,6 +219,11 @@ export function artifactsFromStep(step: SessionStep, known: Set<string>): TurnAr
   const text = typeof step.data.result === "string" ? step.data.result : "";
   // finish_task only echoes the summary; its file mentions belong to earlier steps
   if (!text || text.startsWith("Error") || tool === "finish_task") return out;
+  // an eval tool's result names a run, never a dataset or a file of ours
+  if (EVAL_RUN_TOOLS.has(tool)) {
+    out.evalRuns = evalRunsFromText(tool, text, stepNo);
+    return out;
+  }
   const parsed = parseResultText(text);
   const meta = toolMeta(tool);
   for (const d of parsed.datasets) {
@@ -234,7 +274,7 @@ export function artifactsFromStep(step: SessionStep, known: Set<string>): TurnAr
 
 /** Merge one step's artifacts into a turn's accumulated set (stable order, no dupes). */
 export function mergeArtifacts(acc: TurnArtifacts, add: TurnArtifacts): TurnArtifacts {
-  if (!add.datasets.length && !add.charts.length && !add.reports.length && !add.files.length) return acc;
+  if (!add.datasets.length && !add.charts.length && !add.reports.length && !add.files.length && !add.evalRuns?.length) return acc;
   const datasets = [...acc.datasets];
   for (const d of add.datasets) {
     const i = datasets.findIndex((x) => x.name === d.name);
@@ -260,14 +300,21 @@ export function mergeArtifacts(acc: TurnArtifacts, add: TurnArtifacts): TurnArti
   }
   const files = [...acc.files];
   for (const f of add.files) if (!files.some((x) => x.path === f.path)) files.push(f);
-  return { datasets, charts, reports, files };
+  // one card per run: a later read of the same run refreshes its verdict
+  const evalRuns = [...(acc.evalRuns ?? [])];
+  for (const e of add.evalRuns ?? []) {
+    const i = evalRuns.findIndex((x) => x.runId === e.runId);
+    if (i >= 0) evalRuns[i] = { ...evalRuns[i], gatesPassed: e.gatesPassed ?? evalRuns[i].gatesPassed, status: e.status ?? evalRuns[i].status };
+    else evalRuns.push(e);
+  }
+  return { datasets, charts, reports, files, evalRuns };
 }
 
 /** Rebuild a turn's artifacts from a full step list (persisted traces). */
 export function artifactsFromSteps(steps: SessionStep[], known: Set<string> = new Set()): TurnArtifacts {
   // tool_result steps carry no `input`; borrow it from the matching tool_call
   const inputs = new Map<string, Record<string, unknown>>();
-  let acc: TurnArtifacts = { datasets: [], charts: [], reports: [], files: [] };
+  let acc: TurnArtifacts = { datasets: [], charts: [], reports: [], files: [], evalRuns: [] };
   for (const s of steps) {
     if (s.kind === "tool_call" && s.data.input && typeof s.data.input === "object") {
       inputs.set(`${s.data.step}:${s.data.tool}`, s.data.input as Record<string, unknown>);

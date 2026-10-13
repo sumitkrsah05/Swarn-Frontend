@@ -38,9 +38,9 @@ services:
       - ./data/knowledge:/app/knowledge
       - ./data/aide-runs:/app/agent/runs
     ports:
-      - "${API_PORT:-8420}:8420"
+      - "${API_PORT:-8000}:8000"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8420/api/jobs"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/jobs"]
       interval: 30s
       timeout: 5s
       start_period: 40s
@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile
       args:
         # inlined at build time: rebuild the web image if PUBLIC_HOST changes
-        NEXT_PUBLIC_SWARN_API: "http://${PUBLIC_HOST:?set PUBLIC_HOST in deploy/.env}:${API_PORT:-8420}"
+        NEXT_PUBLIC_SWARN_API: "http://${PUBLIC_HOST:?set PUBLIC_HOST in deploy/.env}:${API_PORT:-8000}"
     image: swarn-web:latest
     restart: unless-stopped
     ports:

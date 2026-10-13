@@ -100,6 +100,7 @@ export function DatasetView({ name, turnId, embedded, onQuickChart }: { name: st
   const grid = (
     <DataGrid
       name={name}
+      workspaceId={ui.ws.serverId}
       columns={info.columns}
       derived={info.derived_columns}
       q={query}
@@ -123,7 +124,7 @@ export function DatasetView({ name, turnId, embedded, onQuickChart }: { name: st
         <BarChartIcon size={12} />
         Quick chart
       </PillButton>
-      <a href={datasetExportUrl(name)} download={`${name}.csv`} className="inline-flex h-6 items-center gap-1.5 rounded-canvas border border-edge bg-panel px-2 text-12 text-fg shadow-hair hover:border-accent hover:text-accent">
+      <a href={datasetExportUrl(name, ui.ws.serverId)} download={`${name}.csv`} className="inline-flex h-6 items-center gap-1.5 rounded-canvas border border-edge bg-panel px-2 text-12 text-fg shadow-hair hover:border-accent hover:text-accent">
         <DownloadIcon size={12} />
         Download CSV
       </a>
@@ -197,7 +198,7 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
   // agent: the tool wrote a Vega-Lite twin next to the PNG — render it live, keep the PNG as a fallback
   const agent = chart.kind === "agent" && !!chart.specPath;
   const png = chart.kind === "png" || (chart.kind === "agent" && !chart.specPath);
-  const agentSpec = useAgentSpec(agent ? chart.specPath : undefined);
+  const agentSpec = useAgentSpec(agent ? chart.specPath : undefined, ui.ws.serverId);
   const [showImage, setShowImage] = useState(false);
   const title = chart.title ?? chart.path?.split("/").pop() ?? "chart";
   const step = chart.step || undefined;
@@ -254,7 +255,7 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
           </PillButton>
         )}
         {(png || agent) && chart.path && (
-          <a href={workspaceFileUrl(chart.path)} target="_blank" rel="noreferrer" className="inline-flex h-6 items-center gap-1.5 rounded-canvas border border-edge bg-panel px-2 text-12 text-fg shadow-hair hover:border-accent hover:text-accent">
+          <a href={workspaceFileUrl(chart.path, ui.ws.serverId)} target="_blank" rel="noreferrer" className="inline-flex h-6 items-center gap-1.5 rounded-canvas border border-edge bg-panel px-2 text-12 text-fg shadow-hair hover:border-accent hover:text-accent">
             <ExternalIcon size={12} />
             open
           </a>
@@ -274,7 +275,7 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
             // agent-produced media: a plain <img>
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={workspaceFileUrl(chart.path)}
+              src={workspaceFileUrl(chart.path, ui.ws.serverId)}
               alt={title}
               onError={() => setBroken(true)}
               className="max-w-full rounded-panel border border-edge bg-white"
@@ -332,24 +333,25 @@ export function ChartView({ turn, chart, index }: { turn: Turn; chart: ChartArti
 
 export function ReportView({ turn, report, index }: { turn: Turn; report: ReportArtifact; index: number }) {
   const ui = useWorkspaceUi();
+  const sid = ui.ws.serverId ?? null;
   const md = useQuery({
-    queryKey: ["workspace", "text", report.mdPath],
-    queryFn: () => api.getWorkspaceText(report.mdPath as string),
+    queryKey: ["workspace", "text", sid, report.mdPath],
+    queryFn: () => api.getWorkspaceText(report.mdPath as string, sid),
     enabled: !!report.mdPath,
     staleTime: 60_000,
   });
   const html = useQuery({
-    queryKey: ["workspace", "text", report.htmlPath],
-    queryFn: () => api.getWorkspaceText(report.htmlPath as string),
+    queryKey: ["workspace", "text", sid, report.htmlPath],
+    queryFn: () => api.getWorkspaceText(report.htmlPath as string, sid),
     enabled: !!report.htmlPath,
     staleTime: 60_000,
     retry: false,
   });
-  const htmlSrc = report.htmlPath && html.isSuccess ? workspaceFileUrl(report.htmlPath) : null;
+  const htmlSrc = report.htmlPath && html.isSuccess ? workspaceFileUrl(report.htmlPath, sid) : null;
   const actions: DocumentAction[] = [];
-  if (report.htmlPath) actions.push({ label: "Open in a new tab", icon: <ExternalIcon size={14} />, href: workspaceFileUrl(report.htmlPath) });
-  if (report.mdPath) actions.push({ label: "Download markdown", icon: <DownloadIcon size={14} />, href: workspaceFileUrl(report.mdPath), download: report.mdPath.split("/").pop() });
-  if (report.htmlPath) actions.push({ label: "Download HTML", icon: <DownloadIcon size={14} />, href: workspaceFileUrl(report.htmlPath), download: report.htmlPath.split("/").pop() });
+  if (report.htmlPath) actions.push({ label: "Open in a new tab", icon: <ExternalIcon size={14} />, href: workspaceFileUrl(report.htmlPath, sid) });
+  if (report.mdPath) actions.push({ label: "Download markdown", icon: <DownloadIcon size={14} />, href: workspaceFileUrl(report.mdPath, sid), download: report.mdPath.split("/").pop() });
+  if (report.htmlPath) actions.push({ label: "Download HTML", icon: <DownloadIcon size={14} />, href: workspaceFileUrl(report.htmlPath, sid), download: report.htmlPath.split("/").pop() });
   actions.push({ label: "Delete this report card", icon: <TrashIcon size={14} />, onClick: () => ui.deleteReport(turn.id, index), danger: true });
 
   const stack = (
@@ -399,6 +401,8 @@ export function ReportView({ turn, report, index }: { turn: Turn; report: Report
 // ----------------------------------------------------------------- answer
 
 function FileLinks({ text }: { text: string }) {
+  const ui = useWorkspaceUi();
+  const sid = ui.ws.serverId ?? null;
   const files = extractFileMentions(text);
   if (files.length === 0) return null;
   const images = files.filter(isImagePath);
@@ -406,7 +410,7 @@ function FileLinks({ text }: { text: string }) {
     <div className="mt-4 border-t border-edge pt-3">
       <div className="flex flex-wrap gap-1.5">
         {files.map((f) => (
-          <a key={f} href={workspaceFileUrl(f)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-chip border border-edge bg-raised px-2 py-1 font-mono text-11 text-accent hover:border-accent/60">
+          <a key={f} href={workspaceFileUrl(f, sid)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-chip border border-edge bg-raised px-2 py-1 font-mono text-11 text-accent hover:border-accent/60">
             {isImagePath(f) ? <ImageIcon size={12} /> : <DownloadIcon size={12} />}
             {f}
           </a>
@@ -415,10 +419,10 @@ function FileLinks({ text }: { text: string }) {
       {images.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-2">
           {images.map((f) => (
-            <a key={f} href={workspaceFileUrl(f)} target="_blank" rel="noreferrer">
+            <a key={f} href={workspaceFileUrl(f, sid)} target="_blank" rel="noreferrer">
               {/* agent-produced media: a plain <img> */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={workspaceFileUrl(f)} alt={f} className="max-h-64 max-w-full rounded-panel border border-edge" loading="lazy" />
+              <img src={workspaceFileUrl(f, sid)} alt={f} className="max-h-64 max-w-full rounded-panel border border-edge" loading="lazy" />
             </a>
           ))}
         </div>

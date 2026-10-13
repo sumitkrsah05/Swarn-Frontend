@@ -65,6 +65,8 @@ function fmtCell(v: unknown, kind: ColumnKind | undefined): string {
 
 export interface DataGridProps {
   name: string;
+  /** the server workspace the dataset lives in (default: the open workspace's) */
+  workspaceId?: string | null;
   columns: DatasetColumn[];
   derived?: string[];
   q?: string;
@@ -144,6 +146,7 @@ function ColumnHeader({
 
 function ColumnPopover({
   name,
+  workspaceId,
   col,
   anchor,
   onClose,
@@ -152,6 +155,7 @@ function ColumnPopover({
   onApply,
 }: {
   name: string;
+  workspaceId?: string | null;
   col: DatasetColumn;
   anchor: HTMLElement | null;
   onClose: () => void;
@@ -170,7 +174,7 @@ function ColumnPopover({
   useEffect(() => {
     let cancelled = false;
     api
-      .datasetColumn(name, col.name)
+      .datasetColumn(name, col.name, workspaceId)
       .then((s) => {
         if (!cancelled) setStats(s);
       })
@@ -180,7 +184,7 @@ function ColumnPopover({
     return () => {
       cancelled = true;
     };
-  }, [name, col.name]);
+  }, [name, col.name, workspaceId]);
 
   const numeric = col.kind === "number";
   const dateish = col.kind === "date" || col.kind === "datetime";
@@ -299,7 +303,7 @@ function ColumnPopover({
   );
 }
 
-export function DataGrid({ name, columns, derived = [], q = "", height = "100%", onTotal, onGone, draggable = false, className = "" }: DataGridProps) {
+export function DataGrid({ name, workspaceId, columns, derived = [], q = "", height = "100%", onTotal, onGone, draggable = false, className = "" }: DataGridProps) {
   "use no memo"; // @tanstack/react-virtual is not React Compiler compatible yet
   const [sort, setSort] = useState<ColumnSort | null>(null);
   const [filters, setFilters] = useState<RowFilter[]>([]);
@@ -312,7 +316,7 @@ export function DataGrid({ name, columns, derived = [], q = "", height = "100%",
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const derivedSet = useMemo(() => new Set(derived), [derived]);
   const kinds = useMemo(() => new Map(columns.map((c) => [c.name, c.kind])), [columns]);
-  const queryKey = JSON.stringify({ name, sort, filters, q });
+  const queryKey = JSON.stringify({ name, workspaceId, sort, filters, q });
 
   // reset the cache when the query changes
   useEffect(() => {
@@ -329,7 +333,7 @@ export function DataGrid({ name, columns, derived = [], q = "", height = "100%",
       if (inflight.current.has(page)) return;
       inflight.current.add(page);
       api
-        .datasetRows(name, { offset: page * PAGE, limit: PAGE, sort: sort?.column, desc: sort?.desc, q, filters })
+        .datasetRows(name, { offset: page * PAGE, limit: PAGE, sort: sort?.column, desc: sort?.desc, q, filters }, workspaceId)
         .then((res) => {
           setPages((prev) => {
             const next = new Map(prev);
@@ -451,6 +455,7 @@ export function DataGrid({ name, columns, derived = [], q = "", height = "100%",
       {menu && (
         <ColumnPopover
           name={name}
+          workspaceId={workspaceId}
           col={menu.col}
           anchor={menu.anchor}
           onClose={() => setMenu(null)}

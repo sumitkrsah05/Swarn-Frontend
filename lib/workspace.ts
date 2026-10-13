@@ -75,11 +75,22 @@ export interface FileArtifact {
   tool: string;
 }
 
+/** An LLM-evaluation run the agent started or read (the `/evals/<run_id>` page). */
+export interface EvalRunArtifact {
+  runId: string;
+  gatesPassed: boolean | null;
+  status?: string | null;
+  tool: string;
+  step: number;
+}
+
 export interface TurnArtifacts {
   datasets: DatasetArtifact[];
   charts: ChartArtifact[];
   reports: ReportArtifact[];
   files: FileArtifact[];
+  /** optional: older persisted workspaces predate it */
+  evalRuns?: EvalRunArtifact[];
 }
 
 export interface Turn {
@@ -166,6 +177,12 @@ export type Focus = ArtifactRef;
 
 export interface Workspace {
   id: string;
+  /**
+   * The backend workspace (POST /api/workspaces) this UI workspace maps to:
+   * where its jobs run and its datasets, files and sessions live. Set the
+   * first time a turn is submitted, or when pulled from the server.
+   */
+  serverId?: string;
   name: string;
   /** unix seconds */
   createdAt: number;
@@ -514,6 +531,7 @@ function sanitizeArtifacts(raw: unknown): TurnArtifacts {
       }),
     reports: arr(a.reports).filter((r) => r && typeof r === "object") as ReportArtifact[],
     files: arr(a.files).filter((f) => f && typeof f === "object") as FileArtifact[],
+    evalRuns: arr(a.evalRuns).filter((e) => e && typeof e === "object" && typeof (e as EvalRunArtifact).runId === "string") as EvalRunArtifact[],
   };
 }
 
@@ -579,6 +597,7 @@ export function sanitizeWorkspaces(raw: unknown): Workspace[] {
     const ids = new Set(turns.map((t) => t.id));
     out.push({
       id: o.id,
+      ...(typeof o.serverId === "string" && o.serverId ? { serverId: o.serverId } : {}),
       name: str(o.name, "Untitled workspace"),
       createdAt: num(o.createdAt, 0),
       updatedAt: num(o.updatedAt, num(o.createdAt, 0)),
@@ -680,8 +699,11 @@ export function importWorkspace(text: string): Workspace | null {
         : parsed;
     const [ws] = sanitizeWorkspaces([raw]);
     if (!ws) return null;
-    // a fresh id so an import never clobbers the original
-    return { ...ws, id: uid(), updatedAt: Date.now() / 1000 };
+    // a fresh id so an import never clobbers the original; the server workspace
+    // is not carried over either — it may belong to someone else
+    const { serverId: _server, ...rest } = ws;
+    void _server;
+    return { ...rest, id: uid(), updatedAt: Date.now() / 1000 };
   } catch {
     return null;
   }

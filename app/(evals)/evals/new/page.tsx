@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation } from "@tanstack/react-query";
-import { createRun, designConfig, getExampleYaml } from "@/api/client";
+import { createRun, designConfig, getExampleYaml, runAuto } from "@/api/client";
 import type { ModelConfig, RunOptions } from "@/api/types";
 import { useInvalidateRuns } from "@/hooks/useEvalData";
 import { useToast } from "@/components/toast";
 import { PageHeader } from "@/components/ui";
 import {
+  AUTO_MAX_COST_DEFAULT,
   EMPTY_DRAFT,
   GOAL_PLACEHOLDER,
   MOCK_CANDIDATES,
@@ -27,6 +28,7 @@ import {
   Card,
   Collapsible,
   Field,
+  Input,
   Loading,
   Textarea,
 } from "@/components/ui";
@@ -47,6 +49,7 @@ export default function NewEvalPage() {
   const invalidate = useInvalidateRuns();
   const [draft, setDraft] = useState<WizardDraft>(EMPTY_DRAFT);
   const [loaded, setLoaded] = useState(false);
+  const [autoMaxCost, setAutoMaxCost] = useState<number>(AUTO_MAX_COST_DEFAULT);
 
   // sessionStorage is client-only and the page is prerendered: hydrate with
   // the empty draft, then restore once after mount (same pattern as lib/threads).
@@ -78,6 +81,7 @@ export default function NewEvalPage() {
         goal: draft.goal.trim(),
         dataset_path: draft.datasetPath.trim(),
         candidates: candidatesForDesign(),
+        judge: draft.judge[0],
       }),
     onSuccess: (r) => {
       patch({ yaml: r.yaml, design: { rationale: r.rationale, notes: r.notes }, step: 2 });
@@ -89,6 +93,25 @@ export default function NewEvalPage() {
   const example = useMutation({
     mutationFn: getExampleYaml,
     onSuccess: (yaml) => patch({ yaml, design: null, step: 2 }),
+    onError: (e) => toast("error", errorMessage(e)),
+  });
+
+  // the autonomous loop: design → run → self-heal → stage-2 as one job; the
+  // cap is the only brake, so it is typed in next to the button
+  const auto = useMutation({
+    mutationFn: () =>
+      runAuto({
+        goal: draft.goal.trim(),
+        dataset_path: draft.datasetPath.trim(),
+        candidates: candidatesForDesign(),
+        judge: draft.judge[0],
+        max_cost_usd: autoMaxCost,
+      }),
+    onSuccess: (job) => {
+      patch({ jobId: job.id, step: 3, design: null });
+      invalidate();
+      toast("success", `Autonomous evaluation started as job ${job.id}`);
+    },
     onError: (e) => toast("error", errorMessage(e)),
   });
 
@@ -117,11 +140,13 @@ export default function NewEvalPage() {
     setDraft(EMPTY_DRAFT);
     design.reset();
     run.reset();
+    auto.reset();
   };
 
   if (!loaded) return <Loading />;
 
   const canDraft = draft.goal.trim().length > 0 && draft.datasetPath.trim().length > 0;
+  const canAuto = canDraft && Number.isFinite(autoMaxCost) && autoMaxCost > 0;
 
   return (
     <div className="space-y-5">
@@ -176,6 +201,17 @@ export default function NewEvalPage() {
               onAddMocksChange={(v) => patch({ addMocks: v })}
             />
           </Card>
+          <Card
+            title="Judge (optional)"
+            subtitle="grades open-ended answers for judge_* and rag_* metrics; pick a different model family from the candidates, or the scores favour their own family"
+          >
+            <CandidateEditor
+              candidates={draft.judge}
+              onChange={(j) => patch({ judge: j.slice(0, 1) })}
+              max={1}
+              emptyHint="No judge chosen: the deployed model judges when the design needs one, and the designer warns if that is a candidate's own family."
+            />
+          </Card>
           <Card title="Goal" subtitle="what the evaluation should decide; the designer turns it into metrics, a judge rubric and gates">
             <Field label="Goal" htmlFor="goal">
               <Textarea
@@ -202,6 +238,28 @@ export default function NewEvalPage() {
               >
                 {example.isPending ? "Loading reference config…" : "Start from the reference config instead →"}
               </button>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-edge pt-4">
+              <Button variant="ghost" disabled={!canAuto} loading={auto.isPending} onClick={() => auto.mutate()}>
+                Design and run autonomously
+              </Button>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                hard cost cap $
+                <span className="w-20">
+                  <Input
+                    type="number"
+                    min={0.01}
+                    step={0.5}
+                    value={Number.isFinite(autoMaxCost) ? autoMaxCost : ""}
+                    onChange={(e) => setAutoMaxCost(parseFloat(e.target.value))}
+                    aria-label="hard cost cap in USD"
+                  />
+                </span>
+              </label>
+              <span className="text-xs text-muted">
+                skips the review step: the designer picks the config, runs it, repairs systematic failures and
+                adds rows if the result is ambiguous — nothing asks back, the cap is the only brake
+              </span>
             </div>
           </Card>
         </div>

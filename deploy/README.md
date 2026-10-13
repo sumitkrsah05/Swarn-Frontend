@@ -2,7 +2,7 @@
 
 Two containers: **api** (the FastAPI backend from `agent2/`) and **web** (this
 Next.js app). Users open the web app on port 3000; the browser calls the API
-on port 8420 directly, so both ports must be reachable from the users'
+on port 8000 directly, so both ports must be reachable from the users'
 network. An optional Caddy proxy puts both behind one address with HTTPS.
 
 Tested layout — two sibling checkouts:
@@ -88,9 +88,9 @@ docker compose logs -f api         # Ctrl+C to stop following
 ## 5. Open the firewall and test
 
 ```bash
-sudo ufw allow 3000/tcp && sudo ufw allow 8420/tcp     # if ufw is active
+sudo ufw allow 3000/tcp && sudo ufw allow 8000/tcp     # if ufw is active
 
-curl http://localhost:8420/api/jobs                    # {"jobs":[...]}
+curl http://localhost:8000/api/jobs                    # {"jobs":[...]}
 curl -I http://localhost:3000                          # HTTP/1.1 200 OK
 ```
 
@@ -128,7 +128,7 @@ docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d --build
 ```
 
 Caddy (`Caddyfile`) routes `/api/*`, `/ws/*` and `/docs` to the API and
-everything else to the web app; ports 3000 and 8420 are no longer published.
+everything else to the web app; ports 3000 and 8000 are no longer published.
 To password-protect the site, uncomment the `basic_auth` block in
 `Caddyfile` (instructions inside) and `docker compose restart proxy`.
 
@@ -155,7 +155,7 @@ Docker socket and switch the mode — add to `api` in a compose override:
 | Symptom | Cause / fix |
 | --- | --- |
 | Browser console: CORS error on `/api/...` | `PUBLIC_HOST` (or the port) in `.env` differs from the address in the browser. Fix `.env`, `docker compose up -d --build`. |
-| Amber live dot, no live steps, but pages load | Port 8420 is blocked between the users and the VM, or the websocket is proxied without upgrade support. Open the port, or use the Caddy mode. |
+| Amber live dot, no live steps, but pages load | Port 8000 is blocked between the users and the VM, or the websocket is proxied without upgrade support. Open the port, or use the Caddy mode. |
 | `api` never becomes healthy | `docker compose logs api`. Usually a bad `api.env` line or the model endpoint unreachable from the VM (`curl $SWARN_DEPLOYED_BASE_URL/models`). |
 | Runs finish instantly with no cards, the answer shows `<tool_call>` text | The model endpoint returns tool calls as text. Enable a tool-call parser on that endpoint, or point `SWARN_DEPLOYED_*` at a model that returns structured tool calls. |
 | "Permission denied" on `/app/workspace` in the api logs | `sudo chown -R 1000:1000 deploy/data` |
@@ -172,12 +172,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh          # installs uv
 uv sync --frozen --python 3.12                            # creates .venv
 cp .env.example .env && nano .env                         # model settings
 export SWARN_CORS_ORIGINS=http://<PUBLIC_HOST>:3000 SWARN_SANDBOX=subprocess
-.venv/bin/uvicorn agent.web.dashboard:app --host 0.0.0.0 --port 8420
+.venv/bin/uvicorn agent.web.dashboard:app --host 0.0.0.0 --port 8000
 
 # frontend (Node 22)
 cd /opt/swarn/swarn-frontend
 npm ci
-NEXT_PUBLIC_SWARN_API=http://<PUBLIC_HOST>:8420 npm run build
+NEXT_PUBLIC_SWARN_API=http://<PUBLIC_HOST>:8000 npm run build
 cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
 PORT=3000 HOSTNAME=0.0.0.0 node .next/standalone/server.js
 ```

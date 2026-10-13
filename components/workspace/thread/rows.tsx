@@ -8,10 +8,11 @@
  */
 
 import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { workspaceFileUrl } from "@/lib/api";
 import { chartKindFor, toolsSummary } from "@/lib/toolMeta";
 import { markdownPreview, parseNumberedList } from "@/lib/suggestions";
-import type { ChartArtifact, DatasetArtifact, ReportArtifact, Turn } from "@/lib/workspace";
+import type { ChartArtifact, DatasetArtifact, EvalRunArtifact, ReportArtifact, Turn } from "@/lib/workspace";
 import { StepTimeline } from "@/components/step-timeline";
 import { useWorkspaceUi } from "../context";
 import { VegaThumb } from "../canvas/vega-chart";
@@ -314,7 +315,7 @@ export function ChartThumb({ turn, chart, index, lineage }: { turn: Turn; chart:
             ) : (
               // agent-produced media: a plain <img>, lazily loaded
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={workspaceFileUrl(chart.path)} alt={title} loading="lazy" onError={() => setBroken(true)} className="max-h-full max-w-full object-contain" />
+              <img src={workspaceFileUrl(chart.path, ui.ws.serverId)} alt={title} loading="lazy" onError={() => setBroken(true)} className="max-h-full max-w-full object-contain" />
             )
           ) : (
             <VegaThumb chart={chart} width={116} height={96} />
@@ -501,6 +502,41 @@ export function FoldedRow({ count, onExpand }: { count: number; onExpand: () => 
       <button type="button" onClick={onExpand} className="rounded-chip px-1 py-0.5 text-11 text-muted hover:bg-hover hover:text-fg">
         {count} earlier turns
       </button>
+    </GutterRow>
+  );
+}
+
+// -------------------------------------------------------------- eval run
+
+/**
+ * An LLM-evaluation run the agent started or read (evaluate_llm, get_eval_run…):
+ * the verdict at a glance and a link to the run's page under /evals.
+ */
+export function EvalRunCard({ run, lineage }: { run: EvalRunArtifact; lineage: boolean }) {
+  const verdict =
+    run.gatesPassed === true
+      ? "gates passed"
+      : run.gatesPassed === false
+        ? "gates failed"
+        : run.status === "complete"
+          ? "no gates"
+          : run.status ?? "run";
+  const tone = run.gatesPassed === true ? "text-accent" : run.gatesPassed === false ? "text-err" : "text-muted";
+  return (
+    <GutterRow icon={<SparkleIcon size={12} />} lineage={lineage} iconTone="accent">
+      <Link
+        href={`/evals/${encodeURIComponent(run.runId)}`}
+        className="block"
+        data-tree-item={`eval:${run.runId}`}
+        title="Open this run under Evals"
+      >
+        <TintCard role="report" radius="card" lineage={lineage} lift className="cursor-pointer px-2.5 py-1.5">
+          <div className="truncate text-12 font-medium text-fg">Evaluation run {run.runId}</div>
+          <div className={`font-mono text-10 ${tone}`}>
+            {verdict} · {run.tool} · open in Evals →
+          </div>
+        </TintCard>
+      </Link>
     </GutterRow>
   );
 }

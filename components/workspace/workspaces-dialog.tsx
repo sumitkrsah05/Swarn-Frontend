@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { useWorkspaceActions, useWorkspaces, useWorkspaceSelector } from "@/lib/workspace-store";
 import { activeTurn, chartCount, threadCount, type Workspace } from "@/lib/workspace";
 import { timeAgo } from "@/lib/format";
+import { useToast } from "@/components/toast";
 import {
   Button,
   CheckIcon,
@@ -46,6 +47,7 @@ export function WorkspaceRow({
   compact?: boolean;
 }) {
   const actions = useWorkspaceActions();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
   const [armed, setArmed] = useState(false);
@@ -122,7 +124,8 @@ export function WorkspaceRow({
             tone="danger"
             onClick={() => {
               setArmed(false);
-              actions.remove(ws.id);
+              // the backend refuses (409) while a job is still running there
+              void actions.remove(ws.id).catch((e) => toast("error", e instanceof Error ? e.message : "Could not delete the workspace"));
             }}
           >
             <CheckIcon size={12} />

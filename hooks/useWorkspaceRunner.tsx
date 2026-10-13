@@ -359,12 +359,15 @@ export function RunnerProvider({ children }: { children: ReactNode }) {
       if (!ws) return;
       const chain = resumeChain(ws, turn.parentId);
       try {
+        // the backend workspace this UI workspace runs in (created on the first turn)
+        const workspace_id = await actions.ensureServerId(wsId);
         const job = await api.createJob({
           task: buildTask(turn),
           method: "react",
           data_dir: turn.attachment?.data_dir ?? null,
           // ancestors only, oldest first — siblings on other branches never leak in
           resume_session_ids: chain,
+          workspace_id,
         });
         const target = { wsId, turnId: turn.id };
         seenEvents.current.set(job.id, 0);

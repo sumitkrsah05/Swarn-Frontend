@@ -11,6 +11,8 @@ const { live, apiMock } = vi.hoisted(() => ({
     getSession: vi.fn(),
     cancelJob: vi.fn(),
     approveJob: vi.fn(),
+    createWorkspace: vi.fn(),
+    putWorkspaceState: vi.fn(),
   },
 }));
 vi.mock("@/lib/live", () => ({
@@ -96,7 +98,10 @@ describe("useWorkspaceRunner", () => {
     apiMock.getJob.mockReset();
     apiMock.getSession.mockReset();
     apiMock.cancelJob.mockReset();
+    apiMock.createWorkspace.mockReset();
     apiMock.getSession.mockRejectedValue(new Error("no trace"));
+    // every UI workspace is backed by a server workspace, created on the first turn
+    apiMock.createWorkspace.mockResolvedValue({ id: "ws-server-1", name: "w", created_at: 1, updated_at: 1, last_job_at: null, running_job_id: null });
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -113,12 +118,29 @@ describe("useWorkspaceRunner", () => {
       screen.getByText("ask").click();
       await vi.advanceTimersByTimeAsync(0);
     });
+    expect(apiMock.createWorkspace).toHaveBeenCalledWith("w");
     expect(apiMock.createJob).toHaveBeenCalledWith({
       task: "load sales.csv\n\nUse the already-loaded dataset(s): 'sales'.",
       method: "react",
       data_dir: null,
       resume_session_ids: [],
+      workspace_id: "ws-server-1",
     });
+  });
+
+  it("fails the turn when the backend refuses to create the workspace", async () => {
+    apiMock.createWorkspace.mockRejectedValue(new Error("request origin not allowed"));
+    mount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await act(async () => {
+      screen.getByText("ask").click();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(apiMock.createJob).not.toHaveBeenCalled();
+    expect(screen.getByTestId("status").textContent).toBe("failed");
+    expect(screen.getByTestId("failure").textContent).toBe("request origin not allowed");
   });
 
   it("finalises from REST when the websocket never delivers the terminal frame", async () => {

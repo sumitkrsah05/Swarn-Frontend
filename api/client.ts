@@ -5,8 +5,9 @@
  * `{"detail": "..."}` bodies surface verbatim as `error.message`.
  */
 
-import { API_BASE, ApiError, uploadFiles, type UploadResult } from "@/lib/api";
+import { API_BASE, ApiError, apiRequest, uploadFiles, type UploadResult } from "@/lib/api";
 import type {
+  AutoRequest,
   CalibrateRequest,
   CalibrateResponse,
   CompareRequest,
@@ -35,28 +36,13 @@ import type {
 
 export { API_BASE, ApiError };
 
-async function doFetch(path: string, init?: RequestInit): Promise<Response> {
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, { cache: "no-store", ...init });
-  } catch {
-    throw new ApiError(
-      0,
-      `Cannot reach the API at ${API_BASE} — is the swarn server running?`,
-    );
-  }
-  if (!res.ok) {
-    let detail = `${res.status} ${res.statusText}`;
-    try {
-      const body = await res.json();
-      if (body && typeof body.detail === "string") detail = body.detail;
-      else if (body?.detail) detail = JSON.stringify(body.detail);
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new ApiError(res.status, detail);
-  }
-  return res;
+/**
+ * Same transport as lib/api.ts: the session cookie travels with every request
+ * (`credentials: "include"`), `{"detail"}` bodies become ApiError, and a 401
+ * triggers the app-wide redirect to /login.
+ */
+function doFetch(path: string, init?: RequestInit): Promise<Response> {
+  return apiRequest(path, init);
 }
 
 async function getJson<T>(path: string): Promise<T> {
@@ -153,6 +139,14 @@ export function pingConfig(body: ConfigBody) {
 
 export function createRun(body: RunRequest) {
   return send<JobSummary>("POST", "/api/eval/runs", body);
+}
+
+/**
+ * The autonomous loop as one job: design from the goal, run, self-heal,
+ * top up an ambiguous sample. Nothing asks back — `max_cost_usd` is the brake.
+ */
+export function runAuto(body: AutoRequest) {
+  return send<JobSummary>("POST", "/api/eval/auto", body);
 }
 
 /** 409 if the run is complete and `add` is absent. */

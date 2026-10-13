@@ -18,8 +18,8 @@ any model API directly.
   data fetching, a small component library of your choice (shadcn/ui or
   similar), Tailwind for styling. Monaco or CodeMirror for the YAML editor.
 - The API lives on the same host as the dashboard, default
-  `http://<host>:8420`. Read the base URL from `NEXT_PUBLIC_SWARN_API`
-  (default `http://localhost:8420`). CORS is enabled on the backend for
+  `http://<host>:8000`. Read the base URL from `NEXT_PUBLIC_SWARN_API`
+  (default `http://localhost:8000`). CORS is enabled on the backend for
   `http://localhost:3000`; other origins are configured server-side via
   `SWARN_CORS_ORIGINS`.
 - No authentication exists on the API. Do not build a login. Do not store
@@ -44,7 +44,10 @@ All paths are relative to the API base. JSON unless stated.
 `GET /api/eval/endpoints` →
 `{deployed: {provider:"deployed", model, base_url}, api_key_envs: [string], providers: [string]}`.
 `api_key_envs` are environment-variable **names** for a candidate's
-`api_key_env` field. Never ask the user to type a key.
+`api_key_env` field. Prefer them. A key may also be pasted as `api_key` on
+the candidate for a one-off run: the server uses it for the calls, echoes it
+back from `POST /api/eval/design`, and never writes it to the run directory,
+reports or the config hash. A resumed run needs it again.
 
 `GET /api/eval/metrics` → `{metrics: [{name, group, needs_judge}]}`,
 `group` ∈ deterministic | embedding | code | judge | rag | safety | trajectory.
@@ -60,9 +63,19 @@ shape is the eval.yaml shape (see 3.8 for a complete example).
 ### 3.3 Design and checks
 
 `POST /api/eval/design`
-`{goal, dataset_path, candidates?: [ModelConfig], train_path?}` →
+`{goal, dataset_path, candidates?: [ModelConfig], judge?: ModelConfig, train_path?}` →
 `{config, yaml, rationale, notes: [string], plan}`. May take 5–30 s (one LLM
-call). 422 if the dataset is unusable, 404 if missing.
+call). `judge` is the model for judge_*/rag_* metrics (default: the deployed
+model; the rationale warns when that is a candidate's own family). `notes`
+carry `GOAL IS VAGUE` / `NO PASS THRESHOLD` lines when the goal gives the
+designer nothing to gate on. 422 if the dataset is unusable, 404 if missing.
+
+`POST /api/eval/auto`
+Same body plus `{label?, max_cost_usd}` → a **job summary** (3.4). The
+autonomous loop as one job: design, run, self-heal systematic failures by
+patching the config and re-running, top up the sample when the result is
+ambiguous. Nothing asks back; `max_cost_usd` is the only brake, so the UI
+shows it next to the button. The job's `run_id` follows the newest run.
 
 `POST /api/eval/validate` (config body) → **always 200**:
 `{ok, errors: [string], warnings: [string], dataset: {...}|null, lines: [string], plan: {...}|null}`.
@@ -122,7 +135,12 @@ gates_passed: bool|null, job: <job summary>|null}], root}` newest first.
 
 `GET /api/eval/runs/{run_id}` →
 `{run_id, status, summary, config, checkpoint: {cost_so_far, selected_ids, seed}|null,
-artifacts: {"report.md": bool, "report.html": bool, ...}, job}`.
+artifacts: {"report.md": bool, "report.html": bool, ...}, job, next_action}`.
+`next_action` is `{kind: "resume", run_id, add_rows, reason}` |
+`{kind: "change_judge", reason}` | `{kind: "fix_endpoint", candidate, reason}` |
+null: the first thing to do about the run, computed server-side and shared
+with the agent's eval tools. The Overview tab renders it as a banner (a
+Resume button for `resume`).
 `summary` is the full summary.json:
 `{run_id, goal, generated_at, seed, sampled, dataset_rows_used, config_hash, dataset_hash,
 candidates: {name: {samples, failures, failure_rate, cost_usd, cache_hits, latency_s_avg,
@@ -224,6 +242,11 @@ reporting: {formats: [md, html, json], slice_by: [category, difficulty]}
 **Step 1, Setup.**
 - Dataset picker from `GET /api/eval/datasets`: name, path, rows, size,
   modified; searchable. Also a free-text path field for a path not listed.
+- Judge (optional): the same model editor limited to one entry, for the
+  model that grades judge_*/rag_* metrics; the hint says to pick a different
+  family from the candidates. Sent as `judge` on `POST /api/eval/design`.
+- "Design and run autonomously" with a hard cost cap input →
+  `POST /api/eval/auto`; jumps straight to step 3 with the job.
 - Candidates: a list editor. "Add deployed model" pre-fills from
   `GET /api/eval/endpoints`. "Add model" opens a form with the ModelConfig
   fields; `api_key_env` is a select fed by `api_key_envs`. Always include a

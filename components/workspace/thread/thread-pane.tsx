@@ -45,7 +45,11 @@ function ThreadColumn({ col, holdsFocus }: { col: LayoutColumn; holdsFocus: bool
   const folded = useMemo(() => {
     if (expanded) return null;
     const plain = (t: Turn) =>
-      t.artifacts.datasets.length === 0 && t.artifacts.charts.length === 0 && t.artifacts.reports.length === 0 && !(t.status === "queued" || t.status === "running");
+      t.artifacts.datasets.length === 0 &&
+      t.artifacts.charts.length === 0 &&
+      t.artifacts.reports.length === 0 &&
+      (t.artifacts.evalRuns?.length ?? 0) === 0 &&
+      !(t.status === "queued" || t.status === "running");
     let end = 0;
     while (end < turns.length - 2 && plain(turns[end]) && !ui.lineage.has(turns[end].id)) end += 1;
     return end >= FOLD_MIN ? end : null;

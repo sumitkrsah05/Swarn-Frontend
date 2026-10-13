@@ -73,6 +73,8 @@ export function workspaceFromSession(session: SessionDetail, name?: string): Wor
   const now = Date.now() / 1000;
   return {
     id: uid(),
+    // the session's own server workspace, so a follow-up turn can resume it
+    ...(session.workspace_id ? { serverId: session.workspace_id } : {}),
     name: name ?? titleFrom(turn.prompt),
     createdAt: session.started_at || now,
     updatedAt: now,

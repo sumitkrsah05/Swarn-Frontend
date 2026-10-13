@@ -7,13 +7,17 @@
  * of the same name exists (otherwise the first 200 lines as text), other
  * text files as text, anything else as a download. `?path=` opens a
  * directory or previews a file (the target of the old /workspace route).
+ *
+ * Files belong to a server workspace: the open UI workspace's when there is
+ * one, otherwise the backend's most recently active workspace.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api, workspaceFileUrl, type WorkspaceEntry } from "@/lib/api";
 import { formatBytes, isImagePath } from "@/lib/format";
+import { useActiveWorkspace } from "@/lib/workspace-store";
 import { DocumentColumn } from "@/components/document-column";
 import { DataGrid } from "@/components/workspace/data-grid";
 import {
@@ -34,6 +38,9 @@ import {
 
 const TEXT_EXT = /\.(txt|json|jsonl|py|log|yaml|yml|toml|ini|cfg|sh|js|ts|tsv|sql)$/i;
 const MAX_LINES = 200;
+
+/** the server workspace being browsed (null = the backend's default) */
+const FilesScope = createContext<string | null>(null);
 
 function joinPath(base: string, name: string): string {
   return base ? `${base}/${name}` : name;
@@ -74,7 +81,8 @@ function DirNode({
   onSelect: (path: string) => void;
 }) {
   const open = expanded.has(path);
-  const listing = useQuery({ queryKey: ["workspace", "dir", path], queryFn: () => api.listWorkspace(path), enabled: open, staleTime: 15_000 });
+  const sid = useContext(FilesScope);
+  const listing = useQuery({ queryKey: ["workspace", "dir", sid, path], queryFn: () => api.listWorkspace(path, sid), enabled: open, staleTime: 15_000 });
   const entries = useMemo(
     () => (listing.data ? [...listing.data.entries].sort((a, b) => (a.is_dir === b.is_dir ? a.name.localeCompare(b.name) : a.is_dir ? -1 : 1)) : []),
     [listing.data],
@@ -145,7 +153,8 @@ function DirNode({
 // -------------------------------------------------------------- preview
 
 function TextPreview({ path, note }: { path: string; note?: string }) {
-  const q = useQuery({ queryKey: ["workspace", "text", path], queryFn: () => api.getWorkspaceText(path), staleTime: 30_000 });
+  const sid = useContext(FilesScope);
+  const q = useQuery({ queryKey: ["workspace", "text", sid, path], queryFn: () => api.getWorkspaceText(path, sid), staleTime: 30_000 });
   if (q.isPending) return <Loading label="Loading file…" />;
   if (q.isError) return <EmptyNote icon={<FileIcon size={22} />} title="The file could not be loaded" hint={(q.error as Error).message} />;
   const lines = q.data.split("\n");
@@ -156,7 +165,7 @@ function TextPreview({ path, note }: { path: string; note?: string }) {
       <pre className="rounded-panel border border-edge bg-code-bg p-3 font-mono text-12 leading-relaxed whitespace-pre text-fg">{shown}</pre>
       {lines.length > MAX_LINES && (
         <p className="mt-2 font-mono text-10 text-faint">
-          first {MAX_LINES} of {lines.length.toLocaleString()} lines · <a href={workspaceFileUrl(path)} className="text-accent hover:underline">download the whole file</a>
+          first {MAX_LINES} of {lines.length.toLocaleString()} lines · <a href={workspaceFileUrl(path, sid)} className="text-accent hover:underline">download the whole file</a>
         </p>
       )}
     </div>
@@ -164,7 +173,8 @@ function TextPreview({ path, note }: { path: string; note?: string }) {
 }
 
 function MarkdownPreview({ path }: { path: string }) {
-  const q = useQuery({ queryKey: ["workspace", "text", path], queryFn: () => api.getWorkspaceText(path), staleTime: 30_000 });
+  const sid = useContext(FilesScope);
+  const q = useQuery({ queryKey: ["workspace", "text", sid, path], queryFn: () => api.getWorkspaceText(path, sid), staleTime: 30_000 });
   if (q.isPending) return <Loading label="Loading document…" />;
   if (q.isError) return <EmptyNote icon={<FileIcon size={22} />} title="The document could not be loaded" hint={(q.error as Error).message} />;
   return (
@@ -175,7 +185,8 @@ function MarkdownPreview({ path }: { path: string }) {
 }
 
 function CsvPreview({ path }: { path: string }) {
-  const datasets = useQuery({ queryKey: ["data", "datasets"], queryFn: api.listDatasets, staleTime: 15_000 });
+  const sid = useContext(FilesScope);
+  const datasets = useQuery({ queryKey: ["data", "datasets", sid], queryFn: () => api.listDatasets(sid), staleTime: 15_000 });
   const stem = path.split("/").pop()?.replace(/\.csv$/i, "") ?? "";
   const info = datasets.data?.datasets.find((d) => d.name === stem);
   if (datasets.isPending) return <Loading label="Checking the dataset registry…" />;
@@ -187,7 +198,7 @@ function CsvPreview({ path }: { path: string }) {
           {info.derived_columns.length > 0 && <span className="text-user"> · {info.derived_columns.length} derived</span>}
         </div>
         <div className="min-h-0 flex-1">
-          <DataGrid name={info.name} columns={info.columns} derived={info.derived_columns} height="100%" />
+          <DataGrid name={info.name} workspaceId={sid} columns={info.columns} derived={info.derived_columns} height="100%" />
         </div>
       </div>
     );
@@ -196,12 +207,13 @@ function CsvPreview({ path }: { path: string }) {
 }
 
 function Preview({ path }: { path: string | null }) {
+  const sid = useContext(FilesScope);
   if (!path) {
     return <EmptyNote icon={<FolderIcon size={24} />} title="Pick a file" hint="Images, reports and tables preview here. Everything else downloads." className="h-full" />;
   }
   const kind = fileKind(path);
   const name = path.split("/").pop() ?? path;
-  const url = workspaceFileUrl(path);
+  const url = workspaceFileUrl(path, sid);
   const bar = (
     <div className="flex shrink-0 items-center gap-2 border-b border-edge px-4 py-1.5">
       <span className="min-w-0 flex-1 truncate font-mono text-12 text-fg" title={path}>
@@ -255,14 +267,15 @@ function Preview({ path }: { path: string | null }) {
 
 // ---------------------------------------------------------------- page
 
-function FilesBrowser() {
+function FilesBrowser({ workspaceName }: { workspaceName: string | null }) {
+  const sid = useContext(FilesScope);
   const search = useSearchParams();
   const router = useRouter();
   const requested = search.get("path") ?? "";
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set([""]));
   const [selected, setSelected] = useState<string | null>(null);
   const [resolved, setResolved] = useState<string | null>(null);
-  const root = useQuery({ queryKey: ["workspace", "dir", ""], queryFn: () => api.listWorkspace(""), staleTime: 15_000 });
+  const root = useQuery({ queryKey: ["workspace", "dir", sid, ""], queryFn: () => api.listWorkspace("", sid), staleTime: 15_000 });
 
   // resolve ?path=: a directory opens in the tree, a file is previewed
   useEffect(() => {
@@ -270,7 +283,7 @@ function FilesBrowser() {
     let cancelled = false;
     const parents = parentsOf(requested);
     api
-      .listWorkspace(requested)
+      .listWorkspace(requested, sid)
       .then(() => {
         if (cancelled) return;
         setExpanded((s) => new Set([...s, ...parents, requested]));
@@ -285,7 +298,7 @@ function FilesBrowser() {
     return () => {
       cancelled = true;
     };
-  }, [requested, resolved]);
+  }, [requested, resolved, sid]);
 
   const toggle = useCallback((path: string) => {
     setExpanded((s) => {
@@ -309,8 +322,10 @@ function FilesBrowser() {
     <div className="flex h-full min-h-0">
       <aside className="flex w-[300px] shrink-0 flex-col border-r border-edge bg-panel" aria-label="Workspace files">
         <div className="flex h-9 shrink-0 items-center gap-1 border-b border-edge px-2">
-          <SectionLabel as="h2" className="flex-1">
-            Files
+          <SectionLabel as="h2" className="flex-1 truncate">
+            <span title={workspaceName ? `Files of the workspace "${workspaceName}"` : "Files of your most recently used workspace"}>
+              Files{workspaceName ? <span className="font-normal normal-case tracking-normal text-muted"> · {workspaceName}</span> : null}
+            </span>
           </SectionLabel>
           <IconButton label="Refresh" size={24} onClick={() => root.refetch()}>
             <RefreshIcon size={12} />
@@ -332,9 +347,14 @@ function FilesBrowser() {
 }
 
 export default function FilesPage() {
+  const active = useActiveWorkspace();
+  const sid = active?.serverId ?? null;
   return (
     <Suspense fallback={<Loading label="Loading files…" />}>
-      <FilesBrowser />
+      <FilesScope.Provider value={sid}>
+        {/* a new tree per workspace, so expanded folders and the selection reset */}
+        <FilesBrowser key={sid ?? "default"} workspaceName={active && sid ? active.name : null} />
+      </FilesScope.Provider>
     </Suspense>
   );
 }

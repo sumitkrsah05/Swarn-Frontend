@@ -13,6 +13,7 @@ import type {
   GateResult,
   MetricInfo,
   ModelConfig,
+  NextAction,
   Plan,
   RunOptions,
 } from "@/api/types";
@@ -284,6 +285,8 @@ export interface WizardDraft {
   goal: string;
   datasetPath: string;
   candidates: ModelConfig[];
+  /** at most one: the judge model for judge_* / rag_* metrics (empty = deployed model) */
+  judge: ModelConfig[];
   addMocks: boolean;
   yaml: string;
   design: { rationale: string; notes: string[] } | null;
@@ -296,6 +299,7 @@ export const EMPTY_DRAFT: WizardDraft = {
   goal: "",
   datasetPath: "",
   candidates: [],
+  judge: [],
   addMocks: true,
   yaml: "",
   design: null,
@@ -340,6 +344,21 @@ export const MOCK_CANDIDATES: ModelConfig[] = [
 
 export const GOAL_PLACEHOLDER =
   "Does <model> answer <dataset> correctly? Gate at 80%.";
+
+/** Default hard cap offered for an unattended (autonomous) evaluation. */
+export const AUTO_MAX_COST_DEFAULT = 5;
+
+/** Title / tone for a run's `next_action` banner. */
+export function nextActionPresentation(kind: NextAction["kind"]): { title: string; tone: "accent" | "warn" | "err" } {
+  switch (kind) {
+    case "resume":
+      return { title: "Recommendation: run more rows", tone: "accent" };
+    case "change_judge":
+      return { title: "Next step: change the judge", tone: "warn" };
+    case "fix_endpoint":
+      return { title: "Next step: fix the endpoint", tone: "err" };
+  }
+}
 
 // ------------------------------------------------------------ misc config
 

@@ -4,6 +4,7 @@ import type {
   CandidateSummary,
   GateConfig,
   MetricInfo,
+  NextAction,
   RunDetail,
 } from "@/api/types";
 import { formatTime } from "@/lib/format";
@@ -22,6 +23,7 @@ import {
   isJudgeMetric,
   isMockName,
   mockSanityProblems,
+  nextActionPresentation,
   orderCandidates,
   parseGateRef,
 } from "@/lib/evals";
@@ -69,6 +71,12 @@ export function RunOverview({
   const mockProblems = mockSanityProblems(s.candidates, catalog);
   const unaudited = !s.judge_diagnostics?.calibration;
   const configGates = run.config?.gates;
+  // the backend's structured hint; older backends only had stage2_recommendation
+  const nextAction: NextAction | null =
+    run.next_action ??
+    (s.stage2_recommendation
+      ? { kind: "resume", run_id: run.run_id, add_rows: s.stage2_recommendation.additional_rows, reason: s.stage2_recommendation.reason }
+      : null);
 
   return (
     <div className="space-y-5">
@@ -92,18 +100,23 @@ export function RunOverview({
         </Banner>
       )}
 
-      {s.stage2_recommendation && (
-        <Banner tone="accent" title="Recommendation: run more rows">
-          <p className="text-sm">{s.stage2_recommendation.reason}</p>
-          <Button
-            variant="primary"
-            size="sm"
-            className="mt-2"
-            loading={resuming}
-            onClick={() => onResume(s.stage2_recommendation?.additional_rows)}
-          >
-            Resume with {fmtInt(s.stage2_recommendation.additional_rows)} more rows
-          </Button>
+      {nextAction && (
+        <Banner tone={nextActionPresentation(nextAction.kind).tone} title={nextActionPresentation(nextAction.kind).title}>
+          <p className="text-sm">
+            {nextAction.kind === "fix_endpoint" && <span className="font-mono">{nextAction.candidate}: </span>}
+            {nextAction.reason}
+          </p>
+          {nextAction.kind === "resume" && nextAction.add_rows > 0 && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="mt-2"
+              loading={resuming}
+              onClick={() => onResume(nextAction.add_rows)}
+            >
+              Resume with {fmtInt(nextAction.add_rows)} more rows
+            </Button>
+          )}
         </Banner>
       )}
 

@@ -159,3 +159,43 @@ describe("agent charts with a Vega-Lite twin", () => {
     expect(a.files).toEqual([{ path: "plots/lone.vl.json", kind: "spec", step: 4, tool: "x" }]);
   });
 });
+
+describe("eval runs (agent evaluate_llm / get_eval_run results)", () => {
+  const tail = (id: string, gates: string) =>
+    `Run ${id} — complete\n  perfect: 40 samples\n\nJSON:\n{"job_id": "abc", "status": "complete", "run_id": "${id}", "gates_passed": ${gates}}`;
+
+  it("reads the structured eval_runs key when the backend sends it", () => {
+    const step = {
+      kind: "tool_result",
+      time: 1,
+      data: {
+        step: 4,
+        tool: "evaluate_llm",
+        result: "irrelevant text",
+        artifacts: { datasets: [], files: [], eval_runs: [{ run_id: "20261005-123818-69307f", gates_passed: true, status: "complete", tool: "evaluate_llm" }] },
+      },
+    } as unknown as SessionStep;
+    const a = artifactsFromStep(step, new Set());
+    expect(a.evalRuns).toEqual([{ runId: "20261005-123818-69307f", gatesPassed: true, status: "complete", tool: "evaluate_llm", step: 4 }]);
+    expect(a.datasets).toEqual([]);
+  });
+
+  it("falls back to the JSON tail of the result text", () => {
+    const step = { kind: "tool_result", time: 1, data: { step: 2, tool: "get_eval_run", result: tail("20261003-184759-094e1e", "false") } } as unknown as SessionStep;
+    const a = artifactsFromStep(step, new Set());
+    expect(a.evalRuns).toEqual([{ runId: "20261003-184759-094e1e", gatesPassed: false, status: "complete", tool: "get_eval_run", step: 2 }]);
+    expect(a.files).toEqual([]);
+  });
+
+  it("ignores the same ids in results of other tools", () => {
+    const step = { kind: "tool_result", time: 1, data: { step: 2, tool: "read_file", result: tail("20261003-184759-094e1e", "true") } } as unknown as SessionStep;
+    expect(artifactsFromStep(step, new Set()).evalRuns ?? []).toEqual([]);
+  });
+
+  it("merges one card per run, keeping the newest verdict", () => {
+    const base = { datasets: [], charts: [], reports: [], files: [] };
+    const first = mergeArtifacts(base, { ...base, evalRuns: [{ runId: "r1", gatesPassed: null, status: "running", tool: "evaluate_llm", step: 1 }] });
+    const second = mergeArtifacts(first, { ...base, evalRuns: [{ runId: "r1", gatesPassed: true, status: "complete", tool: "check_eval_job", step: 3 }] });
+    expect(second.evalRuns).toEqual([{ runId: "r1", gatesPassed: true, status: "complete", tool: "evaluate_llm", step: 1 }]);
+  });
+});

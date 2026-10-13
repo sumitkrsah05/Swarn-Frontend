@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # Production image for the swarn dashboard (Next.js standalone server on :3000).
 #
-#   docker build --build-arg NEXT_PUBLIC_SWARN_API=http://api-host:8420 -t swarn-frontend .
+#   docker build --build-arg NEXT_PUBLIC_SWARN_API=http://api-host:8000 -t swarn-frontend .
 #   docker run -p 3000:3000 swarn-frontend
 #
 # NEXT_PUBLIC_* values are inlined at build time, so pass the API base as a
@@ -14,7 +14,7 @@ RUN npm ci
 
 FROM node:22-alpine AS build
 WORKDIR /app
-ARG NEXT_PUBLIC_SWARN_API=http://localhost:8420
+ARG NEXT_PUBLIC_SWARN_API=http://localhost:8000
 ENV NEXT_PUBLIC_SWARN_API=$NEXT_PUBLIC_SWARN_API
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules

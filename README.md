@@ -9,27 +9,55 @@ the answer). Jobs, History, Files, Knowledge and Evals live in the same shell.
 
 ## Prerequisites
 
-The backend must be running (default `http://localhost:8420`):
+The hosted backend, **swarn-backend** (`../swarn-backend`), must be running
+(default `http://localhost:8000`). It is a FastAPI API over PostgreSQL and
+MinIO that serves agent2's API contract behind Google sign-in:
 
 ```bash
-cd ../agent2 && swarn serve --port 8420      # or: .venv/bin/python -m uvicorn agent.web.dashboard:app --port 8420
+cd ../swarn-backend
+cp .env.example .env            # database, MinIO, Google client, model endpoint
+uv sync --extra dev
+uv run swarn-backend migrate
+uv run swarn-backend serve      # http://localhost:8000
 ```
 
-It enables CORS for `http://localhost:3000` by default; set `SWARN_CORS_ORIGINS`
-on the backend if you serve this app elsewhere.
+Its `BACKEND_CORS_ORIGINS` must list this app's origin (the default
+`.env.example` allows `http://localhost:3000`), and `BACKEND_FRONTEND_URL`
+is where sign-in returns to. Open the app as `http://localhost:3000`, not
+`127.0.0.1`: the session cookie is `SameSite=Lax`, and `localhost:3000` and
+`localhost:8000` count as the same site while `127.0.0.1` does not.
 
-## Configuration
+## Sign-in and sessions
 
-The API base URL comes from `NEXT_PUBLIC_SWARN_API` (with `NEXT_PUBLIC_API_URL`
-as a legacy fallback) and defaults to `http://localhost:8420`. The live websocket
-URL (`ws://…/ws/live`) is derived from it.
+Every request carries the backend's HttpOnly `swarn_session` cookie
+(`credentials: "include"`); a 401 anywhere sends the browser to `/login`
+(`lib/auth.tsx`). The login page hands off to
+`GET /api/auth/google/login?redirect_to=<path>`; the backend's callback sets
+the cookie and redirects back. In development, when the backend runs with
+`BACKEND_DEV_LOGIN=1` and no Google client id, the login page also offers a
+plain email sign-in (`/api/auth/dev-login`). The account menu in the app bar
+(`GET /api/auth/me`) signs out (`POST /api/auth/logout`, or `/logout-all`).
 
-```bash
-cp .env.example .env.local   # then edit
-```
+The live websocket is cross-origin, so `lib/live.tsx` first asks
+`POST /api/auth/ws-token` for a 60-second ticket and connects to
+`/ws/live?token=…`; it opens only for a signed-in user.
 
-`NEXT_PUBLIC_*` variables are inlined at build time — restart the dev server (or
-rebuild) after changing them.
+## Workspaces on the server
+
+A UI workspace maps to one backend workspace (`POST /api/workspaces`),
+remembered as `Workspace.serverId`. The row is created the first time a turn
+is submitted, every job carries `workspace_id`, and dataset / file / session
+/ run reads pass it too (`lib/api.ts` falls back to the open workspace's id,
+`setScopedWorkspaceId`). The thread tree is mirrored into
+`PUT /api/workspaces/{id}/state` a few seconds after it changes and pulled
+back on sign-in (`lib/workspace-store.tsx`), so workspaces follow the user
+across browsers; localStorage remains the local cache. Rename and delete go
+to the server as well (delete is refused with 409 while a job runs there).
+History shows all workspaces by default with a toggle for the open one;
+Files browses the open workspace (or the backend's most recent one).
+
+The `/evals` screens need `/api/eval/*`, which swarn-backend serves in its
+phase 2; until then they show a notice and the backend's errors.
 
 ## Run
 
@@ -48,7 +76,7 @@ dev chunks to the hostname it was started with (`allowedDevOrigins` in
 Docker (standalone server on port 3000; the API base is inlined at build time):
 
 ```bash
-docker build --build-arg NEXT_PUBLIC_SWARN_API=http://api-host:8420 -t swarn-frontend .
+docker build --build-arg NEXT_PUBLIC_SWARN_API=http://api-host:8000 -t swarn-frontend .
 docker run -p 3000:3000 swarn-frontend
 ```
 
@@ -161,12 +189,16 @@ backend image is `agent2/Dockerfile`; the web image is this repo's
 
 ## Backend endpoints used
 
-Only the endpoints documented in `agent2/agent/web/API.md`: jobs (`/api/jobs*`,
-`/approve`, `/cancel`), uploads, sessions, runs, workspace files, playbook,
-`/api/eval/*`, `WS /ws/live`, and the read-only dataset API added with this
-redesign: `GET /api/data/datasets`, `…/{name}/rows`, `…/{name}/columns/{c}`,
-`…/{name}/export?format=csv`. Components never call `fetch`; everything goes
-through `lib/api.ts` (dashboard) or `api/client.ts` (evals).
+The endpoints documented in `agent2/agent/web/API.md`, as served by
+swarn-backend scoped to the signed-in user: jobs (`/api/jobs*`, `/approve`,
+`/cancel`), uploads, sessions, runs, workspace files, playbook, `/api/eval/*`
+(phase 2), `WS /ws/live`, and the read-only dataset API: `GET
+/api/data/datasets`, `…/{name}/rows`, `…/{name}/columns/{c}`,
+`…/{name}/export?format=csv`. New with the hosted backend: `/api/auth/*`
+(me, logout, ws-token, Google login) and `/api/workspaces` (CRUD + `/state`).
+Components never call `fetch`; everything goes through `lib/api.ts`
+(dashboard) or `api/client.ts` (evals), both of which send the session
+cookie.
 
 ## Decisions where the spec was silent
 
@@ -189,6 +221,12 @@ through `lib/api.ts` (dashboard) or `api/client.ts` (evals).
   are not (Edit creates a sibling vega chart prefilled from the tool input).
 - **Report delete.** The pill stack's Delete removes the report card from the
   turn (client-side only, like every delete); server files are never touched.
+- **Evaluation run cards.** When the agent calls an LLM-evaluation tool
+  (`evaluate_llm`, `resume_eval`, `run_llm_eval_autonomously`, `check_eval_job`,
+  `get_eval_run`), the turn gets a card with the run id and gate verdict that
+  links to `/evals/<run_id>`. Source: the backend's `artifacts.eval_runs` on
+  the `tool_result` step, with a parse fallback over the tool's `JSON:` tail
+  (`lib/artifacts.ts`).
 - **Colour contrast.** `--c-faint` was darkened (light `#63636b`, dark
   `#8e8f98`) so 10/11px labels reach 4.5:1 on every tint. Role colours
   (orange, amber, warn, ok) are used for icons, borders, badges and tints —
@@ -221,8 +259,8 @@ The evaluation screens are a client of the `/api/eval/*` endpoints
 | Route | Purpose |
 | --- | --- |
 | `/evals` | Runs list from `GET /api/eval/runs`; refreshes every 5 s while a listed run has a live job; open / compare / delete. |
-| `/evals/new` | Three-step wizard: Setup (datasets, candidates, goal → `POST /api/eval/design`), Review (YAML editor + validate / ping / estimate), Running (`POST /api/eval/runs` watched through `hooks/useJob.ts`). |
-| `/evals/[runId]` | Run detail: Overview, Slices, Comparisons, Results, Report, Judge (only with judge diagnostics), Files; compare / resume / delete. |
+| `/evals/new` | Three-step wizard: Setup (datasets, candidates, optional judge, goal → `POST /api/eval/design`; or "Design and run autonomously" under a cost cap → `POST /api/eval/auto`), Review (YAML editor + validate / ping / estimate), Running (`POST /api/eval/runs` watched through `hooks/useJob.ts`). |
+| `/evals/[runId]` | Run detail: Overview (with the server's `next_action` banner: resume N rows / change judge / fix endpoint), Slices, Comparisons, Results, Report, Judge (only with judge diagnostics), Files; compare / resume / delete. |
 | `/evals/compare?run=&baseline=` | `POST /api/eval/compare` between two runs with optional max drop / p-value. |
 
 Behaviour rules enforced in the UI: judge in the same model family as a

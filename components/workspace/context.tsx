@@ -116,14 +116,17 @@ export function WorkspaceUiProvider({ ws, children }: { ws: Workspace; children:
 
   // registry datasets: poll faster while a run is producing them
   const datasetCount = ws.turns.reduce((n, t) => n + t.artifacts.datasets.length, 0);
+  // scoped to this workspace's server row; a workspace with no row yet has no datasets
+  const serverId = ws.serverId ?? null;
   const datasetsQuery = useQuery({
-    queryKey: ["data", "datasets"],
-    queryFn: api.listDatasets,
+    queryKey: ["data", "datasets", serverId],
+    queryFn: () => api.listDatasets(serverId),
+    enabled: !!serverId,
     refetchInterval: running ? 4000 : 30000,
   });
   useEffect(() => {
-    void qc.invalidateQueries({ queryKey: ["data", "datasets"] });
-  }, [datasetCount, qc]);
+    void qc.invalidateQueries({ queryKey: ["data", "datasets", serverId] });
+  }, [datasetCount, qc, serverId]);
   const datasets = useMemo(() => datasetsQuery.data?.datasets ?? [], [datasetsQuery.data]);
   const datasetInfo = useCallback((name: string) => datasets.find((d) => d.name === name), [datasets]);
 

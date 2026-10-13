@@ -65,4 +65,10 @@ export const EXAMPLES: { title: string; prompt: string; hint: string }[] = [
     prompt: "Analyse the dataset, plot the two most important relationships and write a report of the findings.",
     hint: "ends with an HTML report you can open",
   },
+  {
+    title: "Evaluate a model",
+    prompt:
+      "Evaluate the deployed model on this question/answer file: design the evaluation, show me the cost, run it, and tell me whether it passes 80% with the confidence interval.",
+    hint: "attach a JSONL/CSV of questions and expected answers; the run opens under Evals",
+  },
 ];
