@@ -305,7 +305,7 @@ export function ChartThumb({ turn, chart, index, lineage }: { turn: Turn; chart:
         data-tree-item={`chart:${turn.id}:${index}`}
         onClick={() => ui.focusRef(ref)}
       >
-        <div className="flex h-[100px] w-[120px] items-center justify-center overflow-hidden rounded-card border border-edge bg-panel">
+        <div className="flex h-[100px] w-[120px] items-center justify-center overflow-hidden rounded-card border border-edge bg-panel transition-[border-color,box-shadow] duration-200 group-hover:border-accent/50 group-hover:shadow-card">
           {chart.kind !== "vega" && chart.path ? (
             broken ? (
               <span className="flex flex-col items-center gap-1 text-faint" title={`${chart.path} is no longer in the workspace`}>
@@ -315,7 +315,7 @@ export function ChartThumb({ turn, chart, index, lineage }: { turn: Turn; chart:
             ) : (
               // agent-produced media: a plain <img>, lazily loaded
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={workspaceFileUrl(chart.path, ui.ws.serverId)} alt={title} loading="lazy" onError={() => setBroken(true)} className="max-h-full max-w-full object-contain" />
+              <img src={workspaceFileUrl(chart.path, ui.ws.serverId)} alt={title} loading="lazy" onError={() => setBroken(true)} className="zoom-media max-h-full max-w-full object-contain" />
             )
           ) : (
             <VegaThumb chart={chart} width={116} height={96} />

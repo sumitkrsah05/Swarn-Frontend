@@ -88,14 +88,32 @@ type EmbedResult = { view: { toImageURL: (t: "png" | "svg", scale?: number) => P
 async function embedSpec(el: HTMLElement, spec: Record<string, unknown>, values: Record<string, unknown>[] | null, theme: "light" | "dark"): Promise<EmbedResult> {
   const mod = await import("vega-embed");
   const embed = mod.default;
+  // the chart sits on the panel, so it has no background of its own and its
+  // grid / domain lines follow the theme's hairlines
+  const dark = theme === "dark";
+  const label = dark ? "#a0a0a8" : "#5c5c63";
+  const title = dark ? "#e6e6e9" : "#272727";
+  const hair = dark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
+  const domain = dark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.18)";
   const full = {
     ...spec,
     ...(values ? { data: { values } } : {}),
+    background: "transparent",
     config: {
       ...(spec.config as Record<string, unknown> | undefined),
-      axis: { ...((spec.config as { axis?: Record<string, unknown> } | undefined)?.axis ?? {}), labelColor: theme === "dark" ? "#a0a0a8" : "#5c5c63", titleColor: theme === "dark" ? "#e6e6e9" : "#272727" },
-      legend: { labelColor: theme === "dark" ? "#a0a0a8" : "#5c5c63", titleColor: theme === "dark" ? "#e6e6e9" : "#272727" },
-      title: { color: theme === "dark" ? "#e6e6e9" : "#272727" },
+      view: { ...((spec.config as { view?: Record<string, unknown> } | undefined)?.view ?? {}), stroke: null },
+      axis: {
+        ...((spec.config as { axis?: Record<string, unknown> } | undefined)?.axis ?? {}),
+        labelColor: label,
+        titleColor: title,
+        gridColor: hair,
+        domainColor: domain,
+        tickColor: domain,
+        labelFont: "inherit",
+        titleFont: "inherit",
+      },
+      legend: { labelColor: label, titleColor: title, labelFont: "inherit", titleFont: "inherit" },
+      title: { color: title, font: "inherit" },
     },
   };
   const res = await embed(el, full as never, { renderer: "canvas", tooltip: true, actions: false, mode: "vega-lite" });

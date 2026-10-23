@@ -198,6 +198,20 @@
   --animate-card-in: card-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-pop: pop 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-breathe: breathe 1.8s ease-in-out infinite;
+  /* the motion system (see "motion system" below) */
+  --animate-rise-in: rise-in 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-scale-in: scale-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-dialog-in: dialog-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-slide-in-right: slide-in-right 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-view-in: view-in 300ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-page-in: page-in 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-toast-in: toast-in 360ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  --animate-toast-out: toast-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+  --animate-icon-in: icon-in 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  --animate-float: float 5s ease-in-out infinite;
+  --animate-glow: glow-pulse 3.2s ease-in-out infinite;
+  --animate-ring: rotate-angle 2.4s linear infinite;
+  --animate-ping-soft: ping-soft 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 body {
@@ -453,8 +467,9 @@ body {
 /* Lift on hover: 1px for thread cards, 2px for landing cards. */
 .lift-1 {
   transition:
-    transform 120ms ease,
-    box-shadow 120ms ease;
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
 }
 .lift-1:hover {
   transform: translateY(-1px);
@@ -462,12 +477,14 @@ body {
 }
 .lift-2 {
   transition:
-    transform 120ms ease,
-    box-shadow 120ms ease;
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
 }
 .lift-2:hover {
   transform: translateY(-2px);
-  box-shadow: var(--sh-pop);
+  box-shadow: var(--sh-lift);
+  border-color: color-mix(in srgb, var(--c-accent) 35%, var(--c-edge));
 }
 
 /* Clamp helpers used by thread cards. */
@@ -700,4 +717,487 @@ button {
 }
 .vega-embed summary {
   display: none;
+}
+
+/* ---------------------------------------------------------- motion system */
+/*
+ * One easing family and three durations for every transition in the app:
+ *   --ease-out     entrances, hovers, layout changes
+ *   --ease-spring  playful pops (toast, theme icon)
+ *   --dur-fast / --dur-base / --dur-slow
+ * Entrances rise (translateY + blur), overlays scale from their anchor, the
+ * canvas slides in from the right, toasts spring in from the edge. Every
+ * animation is removed by the prefers-reduced-motion rule above.
+ */
+:root {
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(18px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes view-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(28px) scale(0.96);
+  }
+}
+@keyframes icon-in {
+  from {
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.12);
+  }
+}
+@keyframes rotate-angle {
+  to {
+    --angle: 360deg;
+  }
+}
+@keyframes ping-soft {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  80%,
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+@keyframes aurora-a {
+  0% {
+    transform: translate(-10%, -6%) scale(1);
+  }
+  50% {
+    transform: translate(12%, 10%) scale(1.15);
+  }
+  100% {
+    transform: translate(-6%, 14%) scale(0.95);
+  }
+}
+@keyframes aurora-b {
+  0% {
+    transform: translate(8%, 10%) scale(1.05);
+  }
+  50% {
+    transform: translate(-14%, -8%) scale(0.9);
+  }
+  100% {
+    transform: translate(10%, -12%) scale(1.1);
+  }
+}
+@keyframes aurora-c {
+  0% {
+    transform: translate(0, 12%) scale(0.9);
+  }
+  50% {
+    transform: translate(-8%, -10%) scale(1.1);
+  }
+  100% {
+    transform: translate(12%, 4%) scale(1);
+  }
+}
+@keyframes skeleton-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Staggered entrances: each child rises in 70ms after the previous one.
+   Set `--i` inline on the child, or rely on the first twelve nth-child rules. */
+.stagger > * {
+  animation: rise-in 560ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+.stagger > :nth-child(1) { --i: 0; }
+.stagger > :nth-child(2) { --i: 1; }
+.stagger > :nth-child(3) { --i: 2; }
+.stagger > :nth-child(4) { --i: 3; }
+.stagger > :nth-child(5) { --i: 4; }
+.stagger > :nth-child(6) { --i: 5; }
+.stagger > :nth-child(7) { --i: 6; }
+.stagger > :nth-child(8) { --i: 7; }
+.stagger > :nth-child(9) { --i: 8; }
+.stagger > :nth-child(10) { --i: 9; }
+.stagger > :nth-child(11) { --i: 10; }
+.stagger > :nth-child(12) { --i: 11; }
+
+/* Scroll-triggered reveal (components/ui/motion.tsx adds .in-view). */
+.reveal-up {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    transform var(--dur-slow) var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal-up.in-view {
+  opacity: 1;
+  transform: none;
+}
+
+/* Aurora: three slow-drifting, heavily blurred colour fields behind the hero,
+   faded out towards the edges so the graph paper stays visible. */
+.aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, #000 20%, transparent 75%);
+}
+.aurora > span {
+  position: absolute;
+  width: 46vw;
+  height: 46vw;
+  min-width: 420px;
+  min-height: 420px;
+  max-width: 760px;
+  max-height: 760px;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.aurora > span:nth-child(1) {
+  left: 18%;
+  top: 4%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c-accent) 55%, transparent), transparent 72%);
+  animation: aurora-a 26s ease-in-out infinite alternate;
+}
+.aurora > span:nth-child(2) {
+  right: 14%;
+  top: 14%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c-report) 50%, transparent), transparent 72%);
+  animation: aurora-b 32s ease-in-out infinite alternate;
+}
+.aurora > span:nth-child(3) {
+  left: 38%;
+  bottom: -6%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c-user) 32%, transparent), transparent 72%);
+  animation: aurora-c 38s ease-in-out infinite alternate;
+}
+:root[data-theme="dark"] .aurora > span {
+  opacity: 0.6;
+  filter: blur(80px);
+}
+
+/* The hero mark sits on a soft breathing halo. */
+.hero-mark {
+  position: relative;
+  display: inline-flex;
+}
+.hero-mark::before {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c-accent) 38%, transparent), transparent 75%);
+  filter: blur(6px);
+  animation: glow-pulse 3.2s ease-in-out infinite;
+  z-index: -1;
+}
+
+/* A blinking caret for the typewriter placeholder. */
+.caret::after {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: currentColor;
+  animation: caret-blink 1s steps(1, end) infinite;
+}
+
+/* App-bar nav: a 2px accent underline that grows from the centre. */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--c-accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    opacity var(--dur-base) var(--ease-out);
+  opacity: 0;
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
+  opacity: 0.35;
+}
+.nav-link[aria-current="page"]::after {
+  transform: scaleX(1);
+  opacity: 1;
+}
+
+/* The 2px activity line under the app bar while any turn runs. */
+.busy-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c-accent) 12%, transparent);
+}
+.busy-bar::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--c-accent), transparent);
+  animation: progress 1.6s ease-in-out infinite;
+}
+
+/* A rotating conic border around the composer while swarn works. */
+.working-ring {
+  position: relative;
+  isolation: isolate;
+}
+.working-ring::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 13px;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--angle),
+    transparent 0turn,
+    transparent 0.55turn,
+    color-mix(in srgb, var(--c-accent) 70%, transparent) 0.78turn,
+    var(--c-accent) 0.86turn,
+    transparent 1turn
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: rotate-angle 2.4s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* The composer's focus halo: ring + a soft accent shadow underneath. */
+.focus-glow {
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--c-accent) 14%, transparent),
+    0 12px 32px -12px color-mix(in srgb, var(--c-accent) 45%, transparent),
+    var(--sh-composer);
+}
+
+/* Press feedback for buttons. */
+.press {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.press:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* Shimmering skeletons instead of a flat pulse. */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--c-raised) 0%,
+    var(--c-raised) 35%,
+    color-mix(in srgb, var(--c-fg) 7%, var(--c-raised)) 50%,
+    var(--c-raised) 65%,
+    var(--c-raised) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-sweep 1.6s linear infinite;
+}
+
+/* Theme switch: colours cross-fade for a moment (lib/theme.ts adds the class). */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching ::before,
+html.theme-switching ::after {
+  transition:
+    background-color 320ms ease,
+    border-color 320ms ease,
+    color 320ms ease,
+    fill 320ms ease,
+    box-shadow 320ms ease !important;
+}
+
+/* Arrow that slides in on hover (example cards, links). */
+.slide-arrow {
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.group:hover .slide-arrow,
+.group:focus-visible .slide-arrow {
+  opacity: 1;
+  transform: none;
+}
+
+/* Media inside cards zooms gently on hover. */
+.zoom-media {
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+.group:hover .zoom-media {
+  transform: scale(1.04);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-up {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .aurora > span,
+  .hero-mark::before,
+  .working-ring::before,
+  .busy-bar::before,
+  .skeleton,
+  .caret::after {
+    animation: none;
+  }
+  .stagger > * {
+    animation: none;
+  }
+}
+
+/* Toast auto-dismiss meter. */
+@keyframes toast-progress {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
 }

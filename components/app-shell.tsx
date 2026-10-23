@@ -53,7 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <AppBar />
       <main id="main" className="relative min-h-0 flex-1">
-        {children}
+        {/* each route rises in; the key restarts the animation on navigation */}
+        <div key={pathname} className="h-full animate-page-in motion-reduce:animate-none">
+          {children}
+        </div>
       </main>
     </div>
   );

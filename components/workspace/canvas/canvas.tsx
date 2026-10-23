@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { buildSpec, type ChartConfig, type Channel } from "@/lib/vega";
-import { turnById } from "@/lib/workspace";
+import { refKey, turnById } from "@/lib/workspace";
 import { useWorkspaceUi } from "../context";
 import { kindIcon } from "../data-grid";
 import { ChartEditorPopover, applyDrop } from "./chart-editor";
@@ -115,11 +115,14 @@ export function Canvas({ onClose }: { onClose: () => void }) {
   if (!focus) return null;
   return (
     <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
-      <section className="relative m-1.5 flex h-[calc(100%-12px)] min-w-0 flex-col overflow-hidden rounded-canvas border border-edge bg-panel animate-fade-in-fast" aria-label="Canvas">
-        <IconButton label="Close the canvas" size={26} className="absolute top-1.5 right-1.5 z-[4] bg-panel/80" onClick={onClose}>
+      <section className="relative m-1.5 flex h-[calc(100%-12px)] min-w-0 flex-col overflow-hidden rounded-canvas border border-edge bg-panel shadow-hair animate-slide-in-right motion-reduce:animate-none" aria-label="Canvas">
+        <IconButton label="Close the canvas" size={26} className="absolute top-1.5 right-1.5 z-[4] bg-panel/80 backdrop-blur-sm" onClick={onClose}>
           <CloseIcon size={14} />
         </IconButton>
-        <div className="min-h-0 flex-1">{body}</div>
+        {/* a new focus rises its view in */}
+        <div key={refKey(focus)} className="min-h-0 flex-1 animate-view-in motion-reduce:animate-none">
+          {body}
+        </div>
         <EditorHost dragging={dragging} />
         <CanvasDialogs />
       </section>

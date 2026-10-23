@@ -239,6 +239,19 @@ cookie.
   `/approve` is shown as "timed out, took its default".
 - **Dev origin.** `allowedDevOrigins: ["127.0.0.1"]` so the dev server also
   serves chunks to the loopback address.
+- **Motion.** One easing family and three durations (`--ease-out`,
+  `--ease-spring`, `--dur-fast/base/slow` in `app/globals.css`, "motion
+  system"). Entrances rise (translate + blur), overlays scale from their anchor
+  (Popover/Menu/Dialog), the canvas slides in from the right and re-rises when
+  the focus changes, routes cross-fade (`AppShell` keys on the pathname), and
+  toasts spring in and slide out with an auto-dismiss meter. The landing hero
+  staggers in over a slowly drifting aurora and the composer placeholder
+  types out the "Try asking" prompts; sections below reveal on scroll
+  (`<Reveal>`). The composer wears a rotating accent ring while a run is in
+  progress and the app bar shows a 2px activity line while any turn runs.
+  Theme switches cross-fade colours for 320ms. Every animation is disabled by
+  the `prefers-reduced-motion` rule, and the typewriter falls back to the
+  static placeholder.
 
 ## LLM evaluation (`/evals`)
 

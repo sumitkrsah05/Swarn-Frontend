@@ -17,7 +17,7 @@ import { API_BASE } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useLiveStatus, type WsStatus } from "@/lib/live";
 import { useEndpoints } from "@/hooks/useEvalData";
-import { useActiveWorkspace, useWorkspaceActions } from "@/lib/workspace-store";
+import { useActiveWorkspace, useWorkspaceActions, useWorkspaces } from "@/lib/workspace-store";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { WorkspacesDialog } from "@/components/workspace/workspaces-dialog";
 import {
@@ -133,7 +133,11 @@ function LiveDot({ compact }: { compact?: boolean }) {
       role="status"
       aria-label={ws.text}
     >
-      <span className={`h-2 w-2 rounded-full ${ws.dot}`} aria-hidden />
+      <span className="relative flex h-2 w-2" aria-hidden>
+        {/* a soft ping ring while the feed is live */}
+        {status === "live" && <span className="absolute inset-0 rounded-full bg-ok animate-ping-soft motion-reduce:animate-none" />}
+        <span className={`relative h-2 w-2 rounded-full ${ws.dot}`} />
+      </span>
       {!compact && <span className="hidden xl:inline">{status === "live" ? "live" : status}</span>}
     </span>
   );
@@ -194,6 +198,9 @@ export function AppBar() {
   const endpoints = useEndpoints();
   const live = useLiveStatus();
   const wsActions = useWorkspaceActions();
+  const workspaces = useWorkspaces();
+  // the activity line under the bar: any turn, in any workspace, still running
+  const busy = workspaces.some((w) => w.turns.some((t) => t.status === "running" || t.status === "queued"));
   // the logo always lands on the landing page: leave the open workspace first
   const goHome = () => wsActions.setActive(null);
 
@@ -216,16 +223,17 @@ export function AppBar() {
   const currentLabel = NAV.find((n) => n.href === current)?.label ?? pageTitle(pathname) ?? "Menu";
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-1 border-b border-edge bg-panel pr-2" role="banner">
+    <header className="relative flex h-11 shrink-0 items-center gap-1 border-b border-edge bg-panel pr-2" role="banner">
+      {busy && <span className="busy-bar" aria-hidden />}
       {/* left: logo box aligned with the 40px rail + wordmark + nav */}
       <Link
         href="/"
         onClick={goHome}
-        className="flex h-10 w-10 shrink-0 items-center justify-center text-accent"
+        className="group flex h-10 w-10 shrink-0 items-center justify-center text-accent"
         aria-label="swarn home"
         title="swarn — landing page"
       >
-        <SwarnMark size={22} />
+        <SwarnMark size={22} className="transition-transform duration-300 ease-[var(--ease-spring)] group-hover:-rotate-12 group-hover:scale-110" />
       </Link>
       <Link href="/" onClick={goHome} className="wordmark mr-2 hidden text-16 text-fg sm:inline">
         swarn
@@ -239,8 +247,8 @@ export function AppBar() {
               key={n.href}
               href={n.href}
               aria-current={selected ? "page" : undefined}
-              className={`flex h-8 items-center px-2.5 text-13 transition-colors ${
-                selected ? "bg-fill text-fg" : "text-muted hover:bg-hover hover:text-fg"
+              className={`nav-link flex h-8 items-center rounded-md px-2.5 text-13 transition-colors ${
+                selected ? "text-fg" : "text-muted hover:bg-hover hover:text-fg"
               }`}
             >
               {n.label}

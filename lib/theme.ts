@@ -38,7 +38,11 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   }, []);
 
   const setTheme = useCallback((t: Theme) => {
-    document.documentElement.setAttribute("data-theme", t);
+    const root = document.documentElement;
+    // colours cross-fade for a moment (globals.css: html.theme-switching)
+    root.classList.add("theme-switching");
+    window.setTimeout(() => root.classList.remove("theme-switching"), 420);
+    root.setAttribute("data-theme", t);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, t);
     } catch {

@@ -31,7 +31,7 @@ import {
   usePanelRef,
   type Layout,
 } from "react-resizable-panels";
-import { CheckIcon, CloseIcon, CopyIcon } from "./icons";
+import { CheckIcon, CloseIcon, CopyIcon, SwarnMark } from "./icons";
 
 /** Shared focus treatment; applied to everything interactive. */
 export const FOCUS =
@@ -44,7 +44,7 @@ type Size = "sm" | "md";
 
 const VARIANT: Record<Variant, string> = {
   primary:
-    "border border-transparent bg-accent text-on-accent shadow-sm hover:bg-accent/90 active:bg-accent/95",
+    "border border-transparent bg-accent text-on-accent shadow-sm hover:bg-accent/90 hover:shadow-[0_6px_18px_-6px_var(--c-accent)] active:bg-accent/95",
   secondary: "border border-edge bg-panel text-fg hover:bg-hover hover:border-faint/60",
   danger: "border border-err/40 bg-transparent text-err hover:bg-err/10",
   ghost: "border border-transparent text-muted hover:bg-hover hover:text-fg",
@@ -75,7 +75,7 @@ export function Button({
       type={type}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
-      className={`inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS} ${VARIANT[variant]} ${SIZE[size]} ${className}`}
+      className={`press inline-flex items-center justify-center whitespace-nowrap rounded-md font-medium transition-[color,background-color,border-color,box-shadow,transform] disabled:cursor-not-allowed disabled:opacity-45 ${FOCUS} ${VARIANT[variant]} ${SIZE[size]} ${className}`}
       {...rest}
     >
       {loading && (
@@ -712,9 +712,15 @@ export function Drawer({
 
 export function Loading({ label = "Loading…" }: { label?: string }) {
   return (
-    <div role="status" className="flex items-center justify-center gap-3 py-10 text-sm text-muted">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-edge border-t-accent motion-reduce:animate-none" />
-      {label}
+    <div role="status" className="flex flex-col items-center justify-center gap-3 py-10 text-sm text-muted animate-fade-in">
+      <span className="relative flex h-10 w-10 items-center justify-center">
+        <span className="absolute inset-0 rounded-full border-2 border-edge" aria-hidden />
+        <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-accent motion-reduce:animate-none" aria-hidden />
+        <span className="text-accent animate-breathe rounded-full motion-reduce:animate-none">
+          <SwarnMark size={16} />
+        </span>
+      </span>
+      <span>{label}</span>
     </div>
   );
 }
@@ -724,10 +730,7 @@ export const Spinner = Loading;
 
 export function Skeleton({ className = "" }: { className?: string }) {
   return (
-    <div
-      aria-hidden
-      className={`animate-pulse rounded bg-raised motion-reduce:animate-none ${className}`}
-    />
+    <div aria-hidden className={`skeleton rounded ${className}`} />
   );
 }
 
@@ -881,7 +884,7 @@ export function IconButton({
       aria-label={label}
       title={title ?? label}
       aria-pressed={active}
-      className={`inline-flex shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+      className={`press inline-flex shrink-0 items-center justify-center rounded-md transition-[color,background-color,transform] disabled:cursor-not-allowed disabled:opacity-40 ${
         active ? "bg-accent-tint text-accent" : toneClass
       } ${FOCUS} ${className}`}
       style={{ width: size, height: size }}
@@ -1012,7 +1015,7 @@ export function TintCard({
 }) {
   return (
     <div
-      className={`min-w-0 ${ROLE_BG[role]} ${RADIUS[radius]} ${border ? "border border-edge" : ""} ${
+      className={`min-w-0 transition-[box-shadow,border-color,background-color] duration-200 ${ROLE_BG[role]} ${RADIUS[radius]} ${border ? "border border-edge" : ""} ${
         focused ? "ring-2 ring-accent ring-offset-0" : ""
       } ${lineage && !focused ? "border-l-2 border-l-accent" : ""} ${lift ? "lift-1" : ""} ${className}`}
       {...rest}
@@ -1233,12 +1236,21 @@ export function Popover({
       role={role}
       aria-label={label}
       tabIndex={-1}
-      className={`fixed z-[70] rounded-pop border border-edge bg-panel text-fg shadow-pop outline-none animate-fade-in-fast ${className}`}
+      className={`fixed z-[70] rounded-pop border border-edge bg-panel text-fg shadow-pop outline-none animate-scale-in ${className}`}
       style={{
         top: pos?.top ?? -9999,
         left: pos?.left ?? -9999,
         width,
         visibility: pos ? "visible" : "hidden",
+        transformOrigin: placement.startsWith("top")
+          ? placement.endsWith("end")
+            ? "bottom right"
+            : "bottom left"
+          : placement.startsWith("left")
+            ? "top right"
+            : placement.endsWith("end")
+              ? "top right"
+              : "top left",
       }}
     >
       {children}
@@ -1391,14 +1403,14 @@ export function Dialog({
   if (!open || typeof document === "undefined") return null;
   return createPortal(
     <div className="fixed inset-0 z-[65] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in-fast" onClick={onClose} aria-hidden />
       <div
         ref={panel}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
-        className={`relative flex max-h-[90vh] flex-col rounded-canvas border border-edge bg-panel shadow-pop outline-none animate-fade-in-fast ${className}`}
+        className={`relative flex max-h-[90vh] flex-col rounded-canvas border border-edge bg-panel shadow-lift outline-none animate-dialog-in ${className}`}
         style={{ width }}
       >
         {(
@@ -1563,7 +1575,7 @@ export function Kbd({ children }: { children: ReactNode }) {
 export function ProgressBar({ className = "" }: { className?: string }) {
   return (
     <div className={`relative h-0.5 w-full overflow-hidden bg-accent-tint ${className}`} aria-hidden>
-      <span className="absolute top-0 h-full rounded-full bg-accent animate-progress motion-reduce:animate-none" />
+      <span className="absolute top-0 h-full rounded-full bg-[linear-gradient(90deg,transparent,var(--c-accent),transparent)] animate-progress motion-reduce:animate-none" />
     </div>
   );
 }

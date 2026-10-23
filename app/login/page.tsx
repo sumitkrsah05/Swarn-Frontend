@@ -14,7 +14,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { API_BASE, devLoginUrl, googleLoginUrl, safeNext } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Banner, Button, Field, Input, Loading, SwarnMark } from "@/components/ui";
+import { Aurora, Banner, Button, Field, Input, Loading, SwarnMark } from "@/components/ui";
 
 const ERRORS: Record<string, string> = {
   not_allowed: "That Google account is not on this deployment's allow list. Ask an administrator to add your email or domain.",
@@ -53,9 +53,9 @@ function LoginForm() {
   if (auth.status === "loading") return <Loading label="Checking your session…" />;
 
   return (
-    <div className="w-full max-w-sm space-y-5">
+    <div className="stagger w-full max-w-sm space-y-5">
       <div className="flex flex-col items-center gap-2 text-center">
-        <span className="text-accent">
+        <span className="hero-mark text-accent">
           <SwarnMark size={40} />
         </span>
         <h1 className="wordmark text-[32px] leading-none text-fg">swarn</h1>
@@ -78,7 +78,7 @@ function LoginForm() {
 
       <a
         href={googleLoginUrl(next)}
-        className="flex h-10 w-full items-center justify-center gap-2.5 rounded-md border border-edge bg-panel text-13 font-medium text-fg shadow-hair transition-colors hover:bg-hover"
+        className="press flex h-10 w-full items-center justify-center gap-2.5 rounded-md border border-edge bg-panel text-13 font-medium text-fg shadow-hair transition-[background-color,box-shadow,transform,border-color] duration-200 hover:-translate-y-px hover:border-accent/40 hover:bg-hover hover:shadow-lift"
       >
         <GoogleMark />
         Continue with Google
@@ -115,10 +115,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="graph-paper flex h-full min-h-screen items-center justify-center px-4 py-12">
-      <Suspense fallback={<Loading label="Loading…" />}>
-        <LoginForm />
-      </Suspense>
+    <div className="graph-paper relative flex h-full min-h-screen items-center justify-center overflow-hidden px-4 py-12">
+      <Aurora />
+      <div className="relative">
+        <Suspense fallback={<Loading label="Loading…" />}>
+          <LoginForm />
+        </Suspense>
+      </div>
     </div>
   );
 }

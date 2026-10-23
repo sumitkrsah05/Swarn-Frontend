@@ -286,7 +286,7 @@ export function Composer({
       : "mx-auto w-full max-w-[640px]";
 
   return (
-    <div className={`@container ${shell}`}>
+    <div className={`@container relative ${shell} ${running ? "working-ring" : ""}`}>
       <div
         ref={setCardEl}
         onDragOver={(e) => {
@@ -306,8 +306,12 @@ export function Composer({
           const files = Array.from(e.dataTransfer.files);
           if (files.length) void doUpload(files);
         }}
-        className={`relative overflow-hidden rounded-composer border bg-panel shadow-composer transition-[border-color,box-shadow] ${
-          focused ? "border-accent ring-2 ring-accent/15" : dragOver ? "border-accent border-dashed" : "border-edge"
+        className={`relative overflow-hidden rounded-composer border bg-panel transition-[border-color,box-shadow,transform] duration-300 ease-[var(--ease-out)] ${
+          focused
+            ? "border-accent focus-glow"
+            : dragOver
+              ? "border-accent border-dashed shadow-lift"
+              : `border-edge shadow-composer ${variant === "big" ? "hover:shadow-lift hover:border-faint/60" : ""}`
         }`}
       >
         {/* agent question panel (§7.6) */}
@@ -511,19 +515,24 @@ export function Composer({
               disabled={!canSend}
               aria-label="Send"
               title="Send (Enter)"
-              className={`ml-1 inline-flex h-7 w-7 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed ${
-                canSend ? "bg-accent text-on-accent hover:opacity-90" : "bg-raised text-faint"
+              className={`press ml-1 inline-flex h-7 w-7 items-center justify-center rounded-full transition-[background-color,color,box-shadow,transform] duration-300 ease-[var(--ease-spring)] disabled:cursor-not-allowed ${
+                canSend
+                  ? "scale-105 bg-accent text-on-accent shadow-[0_6px_16px_-6px_var(--c-accent)] hover:-translate-y-px hover:shadow-[0_8px_20px_-6px_var(--c-accent)]"
+                  : "bg-raised text-faint"
               }`}
             >
-              <ArrowUpIcon size={15} />
+              <ArrowUpIcon size={15} className={`transition-transform duration-300 ${canSend ? "" : "translate-y-px opacity-70"}`} />
             </button>
           </div>
 
           {/* working overlay */}
           {running && (
-            <div className="absolute inset-0 z-[2] flex flex-col bg-panel/95" role="status" aria-live="polite">
+            <div className="absolute inset-0 z-[2] flex flex-col bg-panel/95 animate-fade-in-fast" role="status" aria-live="polite">
               <div className="flex flex-1 items-center gap-3 px-3">
-                <PencilIcon size={16} className="shrink-0 text-accent animate-wobble motion-reduce:animate-none" />
+                <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-tint text-accent">
+                  <span className="absolute inset-0 rounded-full border border-accent/40 animate-ping-soft motion-reduce:animate-none" aria-hidden />
+                  <PencilIcon size={14} className="animate-wobble motion-reduce:animate-none" />
+                </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-13 text-fg">swarn is working…</div>
                   <div className="truncate font-mono text-11 text-muted">
@@ -538,7 +547,7 @@ export function Composer({
                     onClick={onStop}
                     aria-label="Stop the run"
                     title="Stop"
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-err text-white transition-opacity hover:opacity-90"
+                    className="press inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-err text-white shadow-[0_6px_16px_-6px_var(--c-err)] transition-[opacity,transform,box-shadow] hover:-translate-y-px hover:opacity-90"
                   >
                     <StopIcon size={14} />
                   </button>
